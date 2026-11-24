@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MemoFit">
+  <meta name="theme-color" content="#080808">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <title>MemoFit</title>
+  <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+
+  <header>
+    <h1><span class="title-memo">Memo</span><span class="title-me">Fit</span></h1>
+    <div class="header-btns">
+      <button id="btn-einstellungen" class="btn-help btn-zahnrad" type="button" title="Einstellungen" aria-label="Einstellungen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      <button id="btn-info" class="btn-help" type="button" title="Hilfe" aria-label="Hilfe">?</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ── TRAINING (Start) ──────────────────────────── -->
+    <section id="view-start" class="view">
+      <div class="seiten-kopf">
+        <h2 class="seiten-titel">Training</h2>
+        <p class="seiten-sub">Ein Tipp startet. Kann, nicht muss.</p>
+      </div>
+      <div id="start-liste" class="plan-karten"></div>
+    </section>
+
+    <!-- ── PLÄNE (Liste) ─────────────────────────────── -->
+    <section id="view-plaene" class="view hidden">
+      <div class="seiten-kopf mit-knopf">
+        <h2 class="seiten-titel">Pläne</h2>
+        <button class="btn-klein" id="btn-plaene-sort" type="button">Reihenfolge</button>
+      </div>
+      <div class="card"><div id="plaene-liste" class="zeilen"></div></div>
+      <button class="btn-secondary" id="btn-plan-neu" type="button">+ Neuer Plan</button>
+    </section>
+
+    <!-- ── PLAN BEARBEITEN ───────────────────────────── -->
+    <section id="view-plan" class="view hidden">
+      <div class="einst-kopf">
+        <button class="btn-zurueck" id="plan-zurueck" type="button">‹ Pläne</button>
+      </div>
+      <div class="plan-kopf">
+        <button class="plan-name-knopf" id="plan-name" type="button"></button>
+        <div class="plan-kopf-info" id="plan-info"></div>
+        <div class="chip-reihe links">
+          <button class="btn-klein" id="plan-sort" type="button">Reihenfolge</button>
+          <button class="btn-klein" id="plan-kopie" type="button">Kopieren</button>
+          <button class="btn-klein" id="plan-weg" type="button">Löschen</button>
+        </div>
+      </div>
+      <p class="card-text hidden" id="plan-sort-hinweis">Mit den Pfeilen verschiebst du Blöcke und Übungen. Eine Übung wandert am Rand in den Block davor oder danach.</p>
+      <div id="plan-bloecke" class="view"></div>
+      <button class="btn-secondary" id="btn-block-neu" type="button">+ Block</button>
+    </section>
+
+    <!-- ── EINSTELLUNGEN ─────────────────────────────── -->
+    <section id="view-einst" class="view hidden">
+      <div class="einst-kopf">
+        <button class="btn-zurueck" id="einst-zurueck" type="button">‹ Zurück</button>
+        <h2 class="einst-titel">Einstellungen</h2>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2>Nach der Pause</h2></div>
+        <div class="seg" id="e-auto" role="group" aria-label="Nach der Pause">
+          <button type="button" data-wert="1">automatisch weiter</button>
+          <button type="button" data-wert="0">auf Tipp warten</button>
+        </div>
+        <p class="form-hinweis">Automatisch: 3-2-1, dann geht es los. Ein Tipp in der Pause hält trotzdem jederzeit an.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2>Bereit vor dem Start</h2></div>
+        <div class="seg" id="e-vorlauf" role="group" aria-label="Vorlauf">
+          <button type="button" data-wert="0">aus</button>
+          <button type="button" data-wert="5">5 s</button>
+          <button type="button" data-wert="10">10 s</button>
+          <button type="button" data-wert="15">15 s</button>
+        </div>
+        <div class="form-group" style="margin-top:1rem"><label>Seite wechseln (re/li)</label>
+          <div class="seg" id="e-wechsel" role="group" aria-label="Seite wechseln">
+            <button type="button" data-wert="3">3 s</button>
+            <button type="button" data-wert="5">5 s</button>
+            <button type="button" data-wert="10">10 s</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2>Töne</h2></div>
+        <div class="seg" id="e-toene" role="group" aria-label="Töne">
+          <button type="button" data-wert="1">an</button>
+          <button type="button" data-wert="0">aus</button>
+        </div>
+        <p class="form-hinweis">3-2-1 vor Start und Ende. Im Lautlos-Modus bleibt das iPhone stumm, Farbe und große Zahlen zeigen es trotzdem.</p>
+        <div class="btn-reihe"><button class="btn-leise" id="btn-tontest" type="button">Ton testen</button></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2>Videoton</h2></div>
+        <div class="seg" id="e-videoton" role="group" aria-label="Videoton">
+          <button type="button" data-wert="erst">einmal</button>
+          <button type="button" data-wert="aus">stumm</button>
+          <button type="button" data-wert="immer">immer</button>
+        </div>
+        <p class="form-hinweis">Einmal: Die Ansage ist einmal zu hören, danach läuft der Ausschnitt stumm im Loop. Im Lautlos-Modus bleibt das iPhone stumm.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2>Speicher</h2></div>
+        <p class="card-text" id="speicher-text">…</p>
+        <div class="btn-reihe"><button class="btn-secondary" id="btn-persist" type="button">Dauerhaft speichern anfragen</button></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2>Daten</h2></div>
+        <p class="card-text">Alles bleibt auf diesem Gerät. Nichts wird übertragen. Mit einer Sicherungsdatei nimmst du Pläne und Gewichte auf ein anderes Gerät mit.</p>
+        <div class="btn-reihe">
+          <button class="btn-secondary" id="btn-export" type="button">Daten sichern (Datei)</button>
+          <button class="btn-secondary" id="btn-import" type="button">Sicherung laden …</button>
+          <input type="file" id="import-datei" accept="application/json,.json" hidden>
+          <button class="btn-leise" id="btn-beispiel" type="button">Beispielplan hinzufügen</button>
+          <button class="btn-leise" id="btn-alles-loeschen" type="button">Alles löschen …</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-view="start" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M10 8.5l5 3.5-5 3.5Z"/></svg>
+      <span>Training</span>
+    </button>
+    <button class="nav-item" data-view="plaene" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      <span>Pläne</span>
+    </button>
+  </nav>
+
+  <!-- ── TRAINING (Abspielen) ──────────────────────── -->
+  <div id="training" class="training hidden" aria-live="off"></div>
+
+  <!-- ── SHEET ─────────────────────────────────────── -->
+  <div id="sheet" class="modal-backdrop hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sheet-titel">
+      <div class="modal-header">
+        <h2 id="sheet-titel"></h2>
+        <button class="btn-modal-close" id="sheet-zu" type="button" aria-label="Schließen">✕</button>
+      </div>
+      <div class="modal-body" id="sheet-body"></div>
+    </div>
+  </div>
+
+  <!-- ── HILFE ─────────────────────────────────────── -->
+  <div id="hilfe" class="modal-backdrop hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="hilfe-titel">
+      <div class="modal-header">
+        <h2 id="hilfe-titel">Hilfe</h2>
+        <button class="btn-modal-close" id="hilfe-zu" type="button" aria-label="Schließen">✕</button>
+      </div>
+      <div class="modal-body">
+        <aside class="haltung">
+          <h4>Abspielen, nicht bedienen</h4>
+          <p>MemoFit begleitet dein Training Übung für Übung, mit Zeit, Wiederholungen und Pausen. Einmal einrichten, danach nur noch starten. Keine Punkte, keine Serien, kein Soll.</p>
+          <p><em>Kann, nicht muss.</em></p>
+        </aside>
+        <div class="modal-section">
+          <div class="modal-section-title"><span class="hz-i klein" data-i="installieren"></span>Erste Schritte</div>
+          <div class="hz-liste">
+            <div class="hz"><span class="hz-i" data-i="browser"></span><div class="hz-t"><strong>Browser</strong> — iPhone und iPad: Safari · Android: Chrome oder Firefox · Computer: Safari, Firefox, Chrome oder Edge</div></div>
+            <div class="hz"><span class="hz-i" data-i="installieren"></span><div class="hz-t"><strong>Zuerst zum Home-Bildschirm</strong> — iPhone/iPad: Safari → Teilen □↑ → „Zum Home-Bildschirm“ · Android (Chrome): ⋮ oben rechts → „Installieren und Verknüpfung erstellen“ (Firefox: Menü → „Installieren“)</div></div>
+            <div class="hz"><span class="hz-i" data-i="geraet"></span><div class="hz-t"><strong>Warum installieren?</strong> — MemoFit startet wie eine App, auch offline im Studio oder Keller · ohne Installation kann der Browser die Daten nach etwa 7 Tagen ohne Nutzung löschen</div></div>
+            <div class="hz"><span class="hz-i" data-i="update"></span><div class="hz-t"><strong>Nach einem Update</strong> — App ganz schließen und neu öffnen · oder „Neu laden“ im Hinweis unten</div></div>
+          </div>
+        </div>
+        <div class="modal-divider"></div>
+        <div class="modal-section">
+          <div class="modal-section-title"><span class="hz-i klein" data-i="start"></span>Training</div>
+          <div class="hz-liste">
+            <div class="hz"><span class="hz-i" data-i="start" data-ton="neutral"></span><div class="hz-t"><strong>Starten</strong> — Plan antippen · erst „Bereit“ mit 3-2-1 · dann Übung für Übung, alle Sätze einer Übung nacheinander</div></div>
+            <div class="hz"><span class="hz-i" data-i="dauer" data-ton="akt"></span><div class="hz-t"><strong>Zeit</strong> — großer Ring zählt herunter · warm = Arbeit</div></div>
+            <div class="hz"><span class="hz-i" data-i="fertig" data-ton="akt"></span><div class="hz-t"><strong>Wiederholungen</strong> — „12–15 ×“ · großer Knopf „fertig“, wenn du so weit bist</div></div>
+            <div class="hz"><span class="hz-i" data-i="pause" data-ton="reg"></span><div class="hz-t"><strong>Pause</strong> — kühl · zeigt, was gleich kommt · danach 3-2-1 und weiter</div></div>
+            <div class="hz"><span class="hz-i" data-i="tippen" data-ton="reg"></span><div class="hz-t"><strong>Tipp in der Pause</strong> — hält an · „+15 s“ verlängert · „weiter“ startet sofort</div></div>
+            <div class="hz"><span class="hz-i" data-i="kann" data-ton="neutral"></span><div class="hz-t"><strong>Letzter Satz kann</strong> — bei „2–3 Sätze“ fragt die Pause leise „Noch einer?“ · „auslassen“ geht zur nächsten Übung · ohne Tipp geht es mit dem Satz weiter</div></div>
+            <div class="hz"><span class="hz-i" data-i="seiten" data-ton="neutral"></span><div class="hz-t"><strong>Seiten re/li</strong> — erst rechts, kurz „Seite wechseln“, dann links</div></div>
+            <div class="hz"><span class="hz-i" data-i="umdrehen"></span><div class="hz-t"><strong>Karte antippen</strong> — dreht sie um · hinten läuft das Video, ohne Video steht dort der Hinweis groß · die Seite bleibt für die nächsten Übungen</div></div>
+            <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Video</strong> — Karte antippen → Video im Loop, mit Zeit oder „fertig“ unten · die Wahl gilt auch für die Vorschau in der Pause</div></div>
+            <div class="hz"><span class="hz-i" data-i="gewicht"></span><div class="hz-t"><strong>Gewicht</strong> — „17,5 kg“ antippen → + und − · bleibt für das nächste Mal gespeichert</div></div>
+            <div class="hz"><span class="hz-i" data-i="wischen"></span><div class="hz-t"><strong>Wischen</strong> — nach links: nächste Übung · nach rechts: zurück · oder ‹ › unten</div></div>
+            <div class="hz"><span class="hz-i" data-i="halt"></span><div class="hz-t"><strong>Anhalten</strong> — ❙❙ unten · ✕ oben beendet das Training</div></div>
+            <div class="hz"><span class="hz-i" data-i="drehen"></span><div class="hz-t"><strong>Quer oder hoch</strong> — Handy auf die Bank stellen oder auf den Boden legen · der Bildschirm bleibt an</div></div>
+          </div>
+        </div>
+        <div class="modal-divider"></div>
+        <div class="modal-section">
+          <div class="modal-section-title"><span class="hz-i klein" data-i="plaene"></span>Pläne</div>
+          <div class="hz-liste">
+            <div class="hz"><span class="hz-i" data-i="plaene"></span><div class="hz-t"><strong>Plan</strong> — ein Trainingstag · Blöcke wie Warm-up, Hauptteil A, Hauptteil B · darin die Übungen</div></div>
+            <div class="hz"><span class="hz-i" data-i="werte"></span><div class="hz-t"><strong>Werte des Blocks</strong> — Zeit oder Wiederholungen · Sätze · Pause zwischen Sätzen · Pause vor der nächsten Übung · gelten für alle Übungen darin</div></div>
+            <div class="hz"><span class="hz-i" data-i="uebung"></span><div class="hz-t"><strong>Übung</strong> — Name · Hinweis · Seiten re/li · Gewicht · bei Bedarf eigene Werte statt der des Blocks</div></div>
+            <div class="hz"><span class="hz-i" data-i="mehrfach"></span><div class="hz-t"><strong>Dieselbe Übung in mehreren Plänen</strong> — beim Hinzufügen unter „Vorhandene“ wählen · Hinweis und Gewicht gelten dann überall · auch nach „Kopieren“</div></div>
+            <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Video zuordnen</strong> — Übung öffnen → „Video wählen“ → aus Fotos oder iCloud Drive · bleibt nur auf diesem Gerät</div></div>
+            <div class="hz"><span class="hz-i" data-i="schnitt"></span><div class="hz-t"><strong>Ausschnitt</strong> — Video abspielen · bei der Stelle „hier“ unter Start bzw. Ende · „Ausschnitt abspielen“ zum Prüfen · gilt in allen Plänen</div></div>
+            <div class="hz"><span class="hz-i" data-i="speicher"></span><div class="hz-t"><strong>Größe</strong> — 30 s in 1080p sind etwa 30–60 MB · in 1080p filmen oder in Fotos kürzen · 4K braucht viel mehr Platz</div></div>
+            <div class="hz"><span class="hz-i" data-i="sortieren"></span><div class="hz-t"><strong>Reihenfolge</strong> — ↑ ↓ verschieben Blöcke und Übungen</div></div>
+            <div class="hz"><span class="hz-i" data-i="loeschen"></span><div class="hz-t"><strong>Löschen</strong> — „Rückgängig“ im Hinweis unten holt es zurück</div></div>
+          </div>
+        </div>
+        <div class="modal-divider"></div>
+        <div class="modal-section">
+          <div class="modal-section-title"><span class="hz-i klein" data-i="zahnrad"></span>Einstellungen · Zahnrad oben rechts</div>
+          <div class="hz-liste">
+            <div class="hz"><span class="hz-i" data-i="pause"></span><div class="hz-t"><strong>Nach der Pause</strong> — automatisch weiter · oder immer auf Tipp warten</div></div>
+            <div class="hz"><span class="hz-i" data-i="start"></span><div class="hz-t"><strong>Bereit</strong> — 5 s vor der ersten Übung · aus · 10 s · 15 s</div></div>
+            <div class="hz"><span class="hz-i" data-i="ton"></span><div class="hz-t"><strong>Töne</strong> — 3-2-1 vor Start und Ende · im Lautlos-Modus stumm</div></div>
+            <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Videoton</strong> — erster Durchlauf mit Ton, dann stumm · immer stumm · immer mit Ton</div></div>
+            <div class="hz"><span class="hz-i" data-i="speicher"></span><div class="hz-t"><strong>Speicher</strong> — „dauerhaft speichern“ schützt vor dem Aufräumen durch den Browser</div></div>
+          </div>
+        </div>
+        <div class="modal-divider"></div>
+        <div class="modal-section">
+          <div class="modal-section-title"><span class="hz-i klein" data-i="sichern"></span>Daten &amp; Backup</div>
+          <div class="hz-liste">
+            <div class="hz"><span class="hz-i" data-i="geraet"></span><div class="hz-t"><strong>Nur auf diesem Gerät</strong> — nichts wird übertragen</div></div>
+            <div class="hz"><span class="hz-i" data-i="sichern"></span><div class="hz-t"><strong>Daten sichern</strong> — erzeugt eine kleine Datei mit Plänen und Gewichten · ohne Videos: die Originale liegen in Fotos oder iCloud und lassen sich neu zuordnen</div></div>
+            <div class="hz"><span class="hz-i" data-i="laden"></span><div class="hz-t"><strong>Sicherung laden</strong> — Umzug auf ein anderes Gerät</div></div>
+          </div>
+        </div>
+        <div class="modal-divider"></div>
+        <div class="modal-section">
+          <div class="modal-section-title"><span class="hz-i klein" data-i="werkzeug"></span>Probleme &amp; Lösungen</div>
+          <div class="hz-liste">
+            <div class="hz"><span class="hz-i" data-i="ton"></span><div class="hz-t"><strong>Kein Ton?</strong> — Lautlos-Schalter am iPhone prüfen · Töne in den Einstellungen an</div></div>
+            <div class="hz"><span class="hz-i" data-i="geraet"></span><div class="hz-t"><strong>Bildschirm geht aus?</strong> — ab iOS 16.4 bleibt er im Training an · sonst Auto-Sperre in den iPhone-Einstellungen verlängern</div></div>
+            <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Video ohne Ton?</strong> — Lautlos-Schalter prüfen · Karte einmal antippen, dann darf das iPhone Ton abspielen</div></div>
+            <div class="hz"><span class="hz-i" data-i="loeschen"></span><div class="hz-t"><strong>Daten weg?</strong> — „Browserdaten löschen“ entfernt auch MemoFit → Sicherung laden</div></div>
+            <div class="hz"><span class="hz-i" data-i="geraet"></span><div class="hz-t"><strong>Home-Bildschirm &amp; Safari</strong> — getrennte Speicher · immer die App vom Home-Bildschirm nutzen</div></div>
+          </div>
+        </div>
+        <div class="modal-divider"></div>
+        <p class="modal-meta">Daten bleiben auf diesem Gerät. MemoFit ersetzt keine ärztliche oder therapeutische Beratung.</p>
+        <p class="modal-meta"><a href="impressum.html">Impressum &amp; Datenschutz</a></p>
+        <p class="modal-meta modal-meta-build">Version 1.0 · Klaus Teltenkötter 2026</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"><span id="toast-text"></span><button id="toast-btn" type="button" class="hidden">Rückgängig</button></div>
+
+  <script src="app.js?v=2"></script>
+</body>
+</html>
