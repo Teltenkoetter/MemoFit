@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <title>MemoFit</title>
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -36,12 +36,32 @@
 
     <!-- ── PLÄNE (Liste) ─────────────────────────────── -->
     <section id="view-plaene" class="view hidden">
+      <div class="seg plan-tabs" role="tablist" aria-label="Pläne oder Übungen">
+        <button type="button" data-wert="plaene" class="an">Pläne</button>
+        <button type="button" data-wert="bib">Übungen</button>
+      </div>
       <div class="seiten-kopf mit-knopf">
         <h2 class="seiten-titel">Pläne</h2>
         <button class="btn-klein" id="btn-plaene-sort" type="button">Reihenfolge</button>
       </div>
       <div class="card"><div id="plaene-liste" class="zeilen"></div></div>
       <button class="btn-secondary" id="btn-plan-neu" type="button">+ Neuer Plan</button>
+    </section>
+
+    <!-- ── ÜBUNGEN (Bibliothek) ──────────────────────── -->
+    <section id="view-bib" class="view hidden">
+      <div class="seg plan-tabs" role="tablist" aria-label="Pläne oder Übungen">
+        <button type="button" data-wert="plaene">Pläne</button>
+        <button type="button" data-wert="bib" class="an">Übungen</button>
+      </div>
+      <div class="seiten-kopf mit-knopf">
+        <h2 class="seiten-titel">Übungen</h2>
+        <span class="seiten-zahl" id="bib-anzahl"></span>
+      </div>
+      <p class="card-text">Jede Übung gibt es nur einmal. Hinweis, Gewicht und Video gelten in allen Plänen, in denen sie steht.</p>
+      <input type="search" id="bib-suche" class="u-suche" placeholder="Suchen" autocomplete="off">
+      <div class="card"><div id="bib-liste" class="zeilen"></div></div>
+      <button class="btn-secondary" id="btn-bib-neu" type="button">+ Neue Übung</button>
     </section>
 
     <!-- ── PLAN BEARBEITEN ───────────────────────────── -->
@@ -209,7 +229,10 @@
             <div class="hz"><span class="hz-i" data-i="plaene"></span><div class="hz-t"><strong>Plan</strong> — ein Trainingstag · Blöcke wie Warm-up, Hauptteil A, Hauptteil B · darin die Übungen</div></div>
             <div class="hz"><span class="hz-i" data-i="werte"></span><div class="hz-t"><strong>Werte des Blocks</strong> — Zeit oder Wiederholungen · Sätze · Pause zwischen Sätzen · Pause vor der nächsten Übung · gelten für alle Übungen darin</div></div>
             <div class="hz"><span class="hz-i" data-i="uebung"></span><div class="hz-t"><strong>Übung</strong> — Name · Hinweis · Seiten re/li · Gewicht · bei Bedarf eigene Werte statt der des Blocks</div></div>
-            <div class="hz"><span class="hz-i" data-i="mehrfach"></span><div class="hz-t"><strong>Dieselbe Übung in mehreren Plänen</strong> — beim Hinzufügen unter „Vorhandene“ wählen · Hinweis und Gewicht gelten dann überall · auch nach „Kopieren“</div></div>
+            <div class="hz"><span class="hz-i" data-i="bibliothek"></span><div class="hz-t"><strong>Übungen</strong> — oben „Pläne · Übungen“ umschalten · alle Übungen auf einen Blick · suchen · in welchen Plänen sie stehen</div></div>
+            <div class="hz"><span class="hz-i" data-i="mehrfach"></span><div class="hz-t"><strong>Dieselbe Übung in mehreren Plänen</strong> — im Plan „+ Übung“ → „Aus der Bibliothek“ wählen · Hinweis, Gewicht und Video pflegst du nur einmal · auch nach „Kopieren“</div></div>
+            <div class="hz"><span class="hz-i" data-i="loeschen"></span><div class="hz-t"><strong>Aus dem Block entfernen</strong> — die Übung bleibt in der Bibliothek · ganz löschen nur unter „Übungen“</div></div>
+            <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>„Video neu wählen“</strong> — nach dem Laden einer Sicherung auf einem anderen Gerät · Übung öffnen → „Video wählen“ · Ausschnitt bleibt erhalten, wenn du ihn nicht änderst</div></div>
             <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Video zuordnen</strong> — Übung öffnen → „Video wählen“ → aus Fotos oder iCloud Drive · bleibt nur auf diesem Gerät</div></div>
             <div class="hz"><span class="hz-i" data-i="schnitt"></span><div class="hz-t"><strong>Ausschnitt</strong> — Video abspielen · bei der Stelle „hier“ unter Start bzw. Ende · „Ausschnitt abspielen“ zum Prüfen · gilt in allen Plänen</div></div>
             <div class="hz"><span class="hz-i" data-i="speicher"></span><div class="hz-t"><strong>Größe</strong> — 30 s in 1080p sind etwa 30–60 MB · in 1080p filmen oder in Fotos kürzen · 4K braucht viel mehr Platz</div></div>
@@ -258,6 +281,6 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"><span id="toast-text"></span><button id="toast-btn" type="button" class="hidden">Rückgängig</button></div>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

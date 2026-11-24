@@ -498,3 +498,15 @@ html.im-training, html.im-training body { overflow: hidden; }
   .t-vzahl { font-size: 2.6rem; }
   .t-video-leiste { padding: 1.6rem 1.2rem 0.8rem; }
 }
+
+/* ── BIBLIOTHEK (Stufe 3) ───────────────────────────── */
+.plan-tabs { max-width: 320px; }
+.seiten-zahl { font-size: 0.8rem; color: var(--hint); }
+input[type="search"] {
+  width: 100%; padding: 0.7rem 0.9rem; border: 1px solid var(--border); border-radius: 10px;
+  font-size: 1rem; font-family: inherit; color: var(--text); background: var(--surface2);
+  -webkit-appearance: none; appearance: none; color-scheme: dark;
+}
+.u-suche { margin-bottom: 0.2rem; }
+.marke.warm { background: rgba(var(--akt-rgb), 0.18); color: var(--akt); }
+.t-video-slot.fehlt::after { content: 'Video fehlt auf diesem Gerät · unter „Übungen“ neu wählen'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 1.5rem; color: var(--hint); font-size: 0.9rem; line-height: 1.4; }

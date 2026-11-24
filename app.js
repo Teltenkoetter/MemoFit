@@ -54,6 +54,7 @@ const HZ = {
   speicher: '<ellipse cx="12" cy="6" rx="7.5" ry="2.8"/><path d="M4.5 6v12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8V6M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/>',
   sichern: '<path d="M12 3.5v10.5"/><path d="M8 10l4 4 4-4"/><path d="M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
   laden: '<path d="M12 14V3.5"/><path d="M8 7.5l4-4 4 4"/><path d="M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>',
+  bibliothek: '<path d="M5 4v16M9.5 4v16"/><path d="M14 4.5l4.5 15"/>',
   video: '<rect x="3" y="6" width="13" height="12" rx="2.5"/><path d="M16 10.5l5-3v9l-5-3"/>',
   schnitt: '<circle cx="6" cy="6.5" r="2.5"/><circle cx="6" cy="17.5" r="2.5"/><path d="M8.2 7.8L20 16M8.2 16.2L20 8"/>',
   werkzeug: '<path d="M14.5 4a5 5 0 0 0-4.3 7.2L4 17.4V20h2.6l6.2-6.2A5 5 0 0 0 20 9.5l-2.8 1.1-2-2L16.3 5.8A5 5 0 0 0 14.5 4Z"/>',
@@ -143,11 +144,9 @@ function zustandAus(z) {
   n.verlauf = Array.isArray(z.verlauf) ? z.verlauf : [];
   return n;
 }
-// Übungen, die in keinem Plan mehr stehen, beim Start aufräumen
+// Beim Start aufräumen: Plan-Einträge ohne Übung entfernen. Übungen ohne Plan bleiben in der Bibliothek.
 function aufraeumen() {
-  const genutzt = new Set();
-  S.plaene.forEach(p => p.bloecke.forEach(b => b.items.forEach(i => genutzt.add(i.ue))));
-  for (const id of Object.keys(S.uebungen)) if (!genutzt.has(id)) delete S.uebungen[id];
+  S.plaene.forEach(p => p.bloecke.forEach(b => { b.items = b.items.filter(i => S.uebungen[i.ue]); }));
   // Clips ohne Übung entfernen
   const clips = new Set(Object.values(S.uebungen).map(u => u.video?.id).filter(Boolean));
   videoSchluessel().then(keys => keys.forEach(k => { if (!clips.has(k)) videoEntsorgen(k); }));
@@ -204,12 +203,15 @@ function zeige(v) {
   if (v !== 'plan') planSort = false;
   if (v !== 'plaene') plaeneSort = false;
   ansicht = v;
-  ['start', 'plaene', 'plan', 'einst'].forEach(n => $('#view-' + n).classList.toggle('hidden', n !== v));
-  const navZiel = v === 'plan' ? 'plaene' : v;
+  ['start', 'plaene', 'bib', 'plan', 'einst'].forEach(n => $('#view-' + n).classList.toggle('hidden', n !== v));
+  const navZiel = v === 'plan' || v === 'bib' ? 'plaene' : v;
+  if (v === 'plaene' || v === 'bib') S.einst.planTab = v;
+  $$('.plan-tabs button').forEach(b => b.classList.toggle('an', b.dataset.wert === v));
   $$('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === navZiel));
   $('#btn-einstellungen').classList.toggle('an', v === 'einst');
   if (v === 'start') renderStart();
   if (v === 'plaene') renderPlaene();
+  if (v === 'bib') { $('#bib-suche').value = ''; renderBib(); }
   if (v === 'plan') renderPlan();
   if (v === 'einst') renderEinst();
   window.scrollTo(0, 0);
@@ -244,6 +246,28 @@ function renderPlaene() {
     if (plaeneSort) return `<div class="zeile sortieren"><div><div class="nm">${esc(p.name)}</div><div class="info">${info}</div></div>
       <div class="sort-pfeile"><button type="button" data-plan-hoch="${i}" ${i === 0 ? 'disabled' : ''} aria-label="nach oben">↑</button><button type="button" data-plan-runter="${i}" ${i === S.plaene.length - 1 ? 'disabled' : ''} aria-label="nach unten">↓</button></div></div>`;
     return `<button class="zeile" type="button" data-plan-edit="${p.id}"><div><div class="nm">${esc(p.name)}</div><div class="info">${info}</div></div><span class="pfeil">›</span></button>`;
+  }).join('');
+}
+
+// ── Bibliothek: alle Übungen, unabhängig vom Plan ──
+let clipKeys = null;   // welche Videos auf diesem Gerät liegen (für „Video fehlt“)
+async function renderBib() {
+  const el = $('#bib-liste'), q = $('#bib-suche').value.trim().toLowerCase();
+  const alle = Object.values(S.uebungen).sort(sortName);
+  $('#bib-anzahl').textContent = alle.length === 1 ? '1 Übung' : `${alle.length} Übungen`;
+  const liste = q ? alle.filter(u => u.name.toLowerCase().includes(q) || (u.hinweis || '').toLowerCase().includes(q)) : alle;
+  if (!clipKeys) videoSchluessel().then(k => { clipKeys = new Set(k); if (ansicht === 'bib') renderBib(); });
+  if (!alle.length) { el.innerHTML = '<p class="zeile-leer">Noch keine Übung. Übungen entstehen in den Plänen oder hier.</p>'; return; }
+  if (!liste.length) { el.innerHTML = '<p class="zeile-leer">Nichts gefunden.</p>'; return; }
+  el.innerHTML = liste.map(u => {
+    const pl = plaeneMit(u.id, null);
+    const fehlt = u.video && clipKeys && !clipKeys.has(u.video.id);
+    const teile = [];
+    if (u.video) teile.push(fehlt ? 'Video fehlt' : 'Video');
+    if (u.seiten) teile.push('re/li');
+    if (u.kg != null) teile.push(kgText(u));
+    teile.push(pl.length ? pl.join(', ') : 'in keinem Plan');
+    return `<button class="zeile" type="button" data-bib="${u.id}"><div><div class="nm">${esc(u.name)}${fehlt ? '<span class="marke warm">Video neu wählen</span>' : ''}</div><div class="info">${esc(teile.join(' · '))}</div></div><span class="pfeil">›</span></button>`;
   }).join('');
 }
 
@@ -357,18 +381,24 @@ function blockSheet(bi) {
 function plaeneMit(ueId, ausser) {
   return S.plaene.filter(p => p.id !== ausser && p.bloecke.some(b => b.items.some(i => i.ue === ueId))).map(p => p.name);
 }
-function uebungSheet(bi, ii) {
-  const p = aktPlan(), b = p.bloecke[bi], neu = ii == null;
-  const it = neu ? { id: uid(), ue: null, eigen: null } : b.items[ii];
-  let ue = neu ? { name: '', hinweis: '', seiten: false, kg: null, anzahl: 1, schritt: 2.5 } : S.uebungen[it.ue];
-  let gewaehlt = neu ? null : it.ue;   // vorhandene Übung aus anderen Plänen
-  const eigen = !!it.eigen, w = it.eigen ? werte(b, it) : { ...b.w };
-  const vorhanden = Object.values(S.uebungen).filter(u => !b.items.some(i => i.ue === u.id)).sort((a, c) => a.name.localeCompare(c.name, 'de'));
-  const andere = neu ? [] : plaeneMit(it.ue, p.id);
+const sortName = (a, c) => a.name.localeCompare(c.name, 'de');
+// bi = null: aus der Bibliothek (bibId = Übung oder null für neu), sonst aus einem Block
+function uebungSheet(bi, ii, bibId = null) {
+  const bib = bi == null;
+  const p = bib ? null : aktPlan(), b = bib ? null : p.bloecke[bi], neu = bib ? !bibId : ii == null;
+  const it = bib ? null : (neu ? { id: uid(), ue: null, eigen: null } : b.items[ii]);
+  let ue = neu ? { name: '', hinweis: '', seiten: false, kg: null, anzahl: 1, schritt: 2.5 } : S.uebungen[bib ? bibId : it.ue];
+  let gewaehlt = neu ? null : ue.id;   // vorhandene Übung aus der Bibliothek
+  const eigen = !bib && !!it.eigen, w = bib ? { ...W_HAUPT } : (it.eigen ? werte(b, it) : { ...b.w });
+  const vorhanden = bib ? [] : Object.values(S.uebungen).filter(u => !b.items.some(i => i.ue === u.id)).sort(sortName);
+  const andere = neu ? [] : plaeneMit(ue.id, bib ? null : p.id);
+  const auchText = l => bib ? (l.length ? `Steht in: ${l.join(', ')}. Änderungen gelten dort mit.` : 'Steht in keinem Plan.') : (l.length ? `Auch in: ${l.join(', ')}. Name, Hinweis und Gewicht gelten dort mit.` : '');
   sheet(neu ? 'Neue Übung' : 'Übung', `
-    ${neu && vorhanden.length ? `<div class="form-group"><label>Vorhandene</label><div class="vorschlaege" id="u-vorh">${vorhanden.map(u => `<button type="button" class="btn-klein" data-vorh="${u.id}">${esc(u.name)}</button>`).join('')}</div>
-      <p class="form-hinweis">Antippen übernimmt die Übung mit Hinweis und Gewicht. Oder unten neu eintragen.</p></div>` : ''}
-    <p class="card-text ${andere.length ? '' : 'hidden'}" id="u-auch">${andere.length ? `Auch in: ${esc(andere.join(', '))}. Name, Hinweis und Gewicht gelten dort mit.` : ''}</p>
+    ${neu && vorhanden.length ? `<div class="form-group"><label>Aus der Bibliothek</label>
+      ${vorhanden.length > 8 ? '<input type="search" id="u-suche" placeholder="Suchen" autocomplete="off" class="u-suche">' : ''}
+      <div class="vorschlaege" id="u-vorh">${vorhanden.map(u => `<button type="button" class="btn-klein" data-vorh="${u.id}" data-nm="${esc(u.name.toLowerCase())}">${esc(u.name)}</button>`).join('')}</div>
+      <p class="form-hinweis">Antippen übernimmt die Übung mit Hinweis, Gewicht und Video. Oder unten neu eintragen.</p></div>` : ''}
+    <p class="card-text ${auchText(andere) ? '' : 'hidden'}" id="u-auch">${esc(auchText(andere))}</p>
     <div class="form-group"><label for="u-name">Name</label><input type="text" id="u-name" value="${esc(ue.name)}" placeholder="z. B. Gobletsquat" autocomplete="off"></div>
     <div class="form-group"><label for="u-hinweis">Hinweis</label><textarea id="u-hinweis" rows="2" placeholder="z. B. Fersen erhöht, so tief wie möglich">${esc(ue.hinweis)}</textarea></div>
     <label class="schalter-zeile" for="u-seiten"><input type="checkbox" id="u-seiten" ${ue.seiten ? 'checked' : ''}><span>Seiten re/li<small>Erst rechts, kurz „Seite wechseln“, dann links</small></span></label>
@@ -380,14 +410,14 @@ function uebungSheet(bi, ii) {
     <div class="modal-divider"></div>
     <div class="form-group"><label>Video</label><div id="u-video"></div>
       <input type="file" id="u-datei" accept="video/*" hidden></div>
-    <div class="modal-divider"></div>
+    ${bib ? '' : `<div class="modal-divider"></div>
     <div class="form-group"><label>Werte</label>
       <div class="seg" id="u-werte"><button type="button" data-wert="block" class="${eigen ? '' : 'an'}">wie Block</button><button type="button" data-wert="eigen" class="${eigen ? 'an' : ''}">eigene</button></div>
       <p class="form-hinweis ${eigen ? 'hidden' : ''}" id="u-blocktext">${esc(b.name)}: ${esc(werteText(b.w))}</p></div>
-    <div id="u-eigen" class="${eigen ? '' : 'hidden'}">${werteFormular(w)}</div>
+    <div id="u-eigen" class="${eigen ? '' : 'hidden'}">${werteFormular(w)}</div>`}
     <div class="btn-reihe">
       <button class="btn-primary" id="u-ok" type="button">Speichern</button>
-      ${neu ? '' : '<button class="btn-leise" id="u-weg" type="button">Aus dem Block entfernen</button>'}
+      ${neu ? '' : bib ? '<button class="btn-leise" id="u-del" type="button">Übung löschen</button>' : '<button class="btn-leise" id="u-weg" type="button">Aus dem Block entfernen</button>'}
     </div>`);
   werteFormularVerbinden();
   // ── Video: wählen, Ausschnitt setzen ──
@@ -468,8 +498,13 @@ function uebungSheet(bi, ii) {
     vsAus(u.video || null);
     const auch = an ? plaeneMit(gewaehlt, null) : [];
     $('#u-auch').classList.toggle('hidden', !auch.length);
-    $('#u-auch').textContent = auch.length ? `Auch in: ${auch.join(', ')}. Name, Hinweis und Gewicht gelten dort mit.` : '';
+    $('#u-auch').textContent = auchText(auch);
   });
+  const suche = $('#u-suche');
+  if (suche) suche.oninput = () => {
+    const q = suche.value.trim().toLowerCase();
+    $$('#u-vorh [data-vorh]').forEach(x => x.classList.toggle('hidden', !!q && !x.dataset.nm.includes(q)));
+  };
   $('#u-ok').onclick = async () => {
     const name = $('#u-name').value.trim();
     if (!name) { $('#u-name').focus(); toast('Bitte einen Namen eintragen'); return; }
@@ -495,13 +530,30 @@ function uebungSheet(bi, ii) {
     };
     if (gewaehlt) Object.assign(S.uebungen[gewaehlt], daten);
     else { gewaehlt = neueUebung(name).id; Object.assign(S.uebungen[gewaehlt], daten); }
-    it.ue = gewaehlt;
-    it.eigen = $('#u-werte .an').dataset.wert === 'eigen' ? werteLesen() : null;
-    if (neu) b.items.push(it);
-    speichern(); sheetZu(); renderPlan();
-    toast(neu ? `${name} hinzugefügt` : 'Gespeichert');
+    if (!bib) {
+      it.ue = gewaehlt;
+      it.eigen = $('#u-werte .an').dataset.wert === 'eigen' ? werteLesen() : null;
+      if (neu) b.items.push(it);
+    }
+    clipKeys = null;
+    speichern(); sheetZu(); bib ? renderBib() : renderPlan();
+    toast(neu ? (bib ? `${name} angelegt` : `${name} hinzugefügt`) : 'Gespeichert');
   };
-  if (!neu) $('#u-weg').onclick = () => {
+  if (bib && !neu) $('#u-del').onclick = () => {
+    const l = plaeneMit(ue.id, null);
+    const weg = () => {
+      // merken, wo sie stand, für „Rückgängig“
+      const stellen = [];
+      S.plaene.forEach(pl => pl.bloecke.forEach(bl => bl.items.forEach((x, k) => { if (x.ue === ue.id) stellen.push([bl, k, x]); })));
+      stellen.slice().reverse().forEach(([bl, k]) => bl.items.splice(k, 1));
+      delete S.uebungen[ue.id];
+      speichern(); renderBib();
+      toast(`${ue.name} gelöscht`, () => { S.uebungen[ue.id] = ue; stellen.forEach(([bl, k, x]) => bl.items.splice(k, 0, x)); speichern(); renderBib(); });
+    };
+    if (!l.length) { sheetZu(); weg(); return; }
+    bestaetigen(`${ue.name} löschen?`, `Die Übung steht in ${esc(l.join(', '))} und wird dort entfernt.`, 'Löschen', weg);
+  };
+  if (!bib && !neu) $('#u-weg').onclick = () => {
     b.items.splice(ii, 1);
     speichern(); sheetZu(); renderPlan();
     toast(`${ue.name} entfernt`, () => { b.items.splice(ii, 0, it); speichern(); renderPlan(); });
@@ -625,7 +677,7 @@ function trainingStart(planId) {
 }
 function trainingZu() {
   clearInterval(tickTimer); tickTimer = null;
-  if (L) { try { L.video.pause(); L.video.removeAttribute('src'); L.video.load(); } catch {} Object.values(L.urls).forEach(u => URL.revokeObjectURL(u)); }
+  if (L) { try { L.video.pause(); L.video.removeAttribute('src'); L.video.load(); } catch {} Object.values(L.urls).forEach(u => { if (u !== 'fehlt') URL.revokeObjectURL(u); }); }
   L = null;
   wachLoslassen();
   document.documentElement.classList.remove('im-training');
@@ -649,7 +701,8 @@ async function clipsLaden(lauf) {
   for (const id of ids) {
     const blob = await videoLaden(id);
     if (L !== lauf) return;
-    if (blob) { lauf.urls[id] = URL.createObjectURL(blob); videoSync(); }
+    if (blob) lauf.urls[id] = URL.createObjectURL(blob); else lauf.urls[id] = 'fehlt';
+    videoSync();
   }
 }
 const tonStumm = ueId => S.einst.videoTon === 'aus' || (S.einst.videoTon === 'erst' && L.tonGehoert.has(ueId));
@@ -674,8 +727,9 @@ function videoSync() {
   const v = L.video, slot = L.ende ? null : $('#training .t-video-slot');
   if (!slot) { v.pause(); v.remove(); return; }
   const ue = S.uebungen[slot.dataset.ue], url = ue?.video && L.urls[ue.video.id];
-  if (!url) { v.pause(); slot.classList.add('laedt'); return; }
-  slot.classList.remove('laedt');
+  slot.classList.toggle('laedt', !url);
+  slot.classList.toggle('fehlt', url === 'fehlt');
+  if (!url || url === 'fehlt') { v.pause(); v.remove(); return; }
   if (L.videoUe !== ue.id) { L.videoUe = ue.id; v.src = url; }
   if (v.parentNode !== slot) slot.appendChild(v);
   const st = cur();
@@ -956,7 +1010,7 @@ function toast(text, rueckgaengig) {
 
 function verschiebe(arr, i, d) { const j = i + d; if (j < 0 || j >= arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]]; }
 function verbinden() {
-  $$('.nav-item').forEach(b => b.onclick = () => zeige(b.dataset.view));
+  $$('.nav-item').forEach(b => b.onclick = () => zeige(b.dataset.view === 'plaene' ? (S.einst.planTab || 'plaene') : b.dataset.view));
   $('#btn-einstellungen').onclick = () => zeige(ansicht === 'einst' ? vorEinst : 'einst');
   $('#einst-zurueck').onclick = () => zeige(vorEinst === 'einst' ? 'start' : vorEinst);
   $('#btn-info').onclick = () => { $('#hilfe').classList.remove('hidden'); fensterOffen(); };
@@ -971,6 +1025,10 @@ function verbinden() {
   });
 
   $('#btn-plaene-sort').onclick = () => { plaeneSort = !plaeneSort; renderPlaene(); };
+  $$('.plan-tabs button').forEach(b => b.onclick = () => zeige(b.dataset.wert));
+  $('#bib-suche').oninput = () => renderBib();
+  $('#btn-bib-neu').onclick = () => uebungSheet(null, null, null);
+  $('#bib-liste').addEventListener('click', e => { const d = e.target.closest('[data-bib]')?.dataset.bib; if (d) uebungSheet(null, null, d); });
   $('#btn-plan-neu').onclick = neuerPlan;
   $('#plaene-liste').addEventListener('click', e => {
     const d = e.target.closest('button')?.dataset; if (!d) return;
