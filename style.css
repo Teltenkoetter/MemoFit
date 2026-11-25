@@ -494,9 +494,7 @@ html.im-training, html.im-training body { overflow: hidden; }
 .t-video-tipp { font-size: 0.75rem; color: var(--hint); letter-spacing: 0.3px; }
 
 /* Pause: Vorschau als Video */
-.t-video-slot.vorschau { position: relative; inset: auto; width: 100%; max-width: 420px; aspect-ratio: 16 / 10; max-height: 30dvh; border-radius: 16px; overflow: hidden; margin-top: 0.3rem; transition: none; }
 @media (orientation: landscape) and (max-height: 560px) {
-  .t-video-slot.vorschau { max-height: 42dvh; max-width: 360px; }
   .t-vzahl { font-size: 2.6rem; }
   .t-video-leiste { padding: 1.6rem 1.2rem 0.8rem; }
 }
@@ -549,11 +547,17 @@ button.t-ort { background: none; border: 0; cursor: pointer; font-family: inheri
 .pk-ablauf svg { width: 16px; height: 16px; }
 .pk-ablauf:active { transform: scale(0.98); }
 
-/* Pause: Vorschau-Video klein, antippen = groß */
-.t-vorschau .t-video-slot.vorschau { height: 24dvh; width: auto; max-width: 100%; max-height: none; cursor: pointer; }
+/* Pause: Knopf „Vorschau“, antippen = Video groß */
+.t-vorschau-knopf {
+  display: inline-flex; align-items: center; gap: 0.45rem; cursor: pointer; margin-top: 0.45rem;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border-strong); border-radius: 999px;
+  color: var(--text-dim); font-family: inherit; font-size: 0.9rem; font-weight: 600;
+  padding: 0.55rem 1.15rem 0.55rem 0.95rem; min-height: 44px;
+}
+.t-vorschau-knopf svg { width: 15px; height: 15px; }
+.t-vorschau-knopf:active { transform: scale(0.98); }
 .t-vorn.mit-video { padding: 0; justify-content: flex-end; gap: 0; }
 .t-video-slot.gross { transition: none; }
 @media (orientation: landscape) and (max-height: 560px) {
   .t-seite.t-vorn.mit-video { display: flex; padding: 0; }
-  .t-vorschau .t-video-slot.vorschau { height: 40dvh; }
 }

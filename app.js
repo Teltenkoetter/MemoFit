@@ -749,7 +749,7 @@ function trainingZu() {
 }
 
 // ── Video im Training ──
-// Ein einziges <video> wandert zwischen Kartenrückseite und Pausen-Vorschau. So bleibt es nach dem Start-Tipp „freigeschaltet“.
+// Ein einziges <video> wandert zwischen Kartenrückseite und großer Vorschau. So bleibt es nach dem Start-Tipp „freigeschaltet“.
 function videoElement() {
   const v = document.createElement('video');
   v.className = 't-video'; v.playsInline = true; v.muted = true; v.preload = 'auto'; v.loop = true;
@@ -757,24 +757,17 @@ function videoElement() {
   v.addEventListener('timeupdate', videoLoop);
   v.addEventListener('ended', videoLoop);
   ['play', 'pause', 'volumechange'].forEach(ev => v.addEventListener(ev, () => { audioPruefen(); lautKnopf(); }));
-  v.addEventListener('loadedmetadata', () => { const c = L && S.uebungen[L.videoUe]?.video; if (c?.start) v.currentTime = c.start; videoFuellen(); });
+  v.addEventListener('loadedmetadata', () => { const c = L && S.uebungen[L.videoUe]?.video; if (c?.start) v.currentTime = c.start; });
   return v;
 }
-// Im Training läuft das Video bildschirmfüllend (CSS: cover). Die kleine Vorschau in der Pause bekommt das Format des Videos.
-function videoFuellen() {
-  const v = L?.video, slot = v?.parentNode;
-  if (!v || !slot || !v.videoWidth || !slot.clientHeight) return;
-  const rv = v.videoWidth / v.videoHeight;
-  if (slot.classList.contains('vorschau')) slot.style.aspectRatio = String(rv);   // kleine Vorschau im Format des Videos
-}
-window.addEventListener('resize', () => setTimeout(videoFuellen, 60));
+// Im Training läuft das Video bildschirmfüllend (CSS: object-fit: cover).
 async function clipsLaden(lauf) {
   const ids = [...new Set(lauf.ues.map(x => x.ue.video?.id).filter(Boolean))];
   for (const id of ids) {
     const blob = await videoLaden(id);
     if (L !== lauf) return;
     if (blob) lauf.urls[id] = URL.createObjectURL(blob); else lauf.urls[id] = 'fehlt';
-    videoSync();
+    if (!L.ende && cur().typ !== 'arbeit') render(); else videoSync();   // in der Pause: Knopf „Vorschau“ zeigen
   }
 }
 // Videoton: einmal (erster Durchlauf je Übung) · stumm · immer. Der Lautsprecher im Training schaltet weiter.
@@ -835,16 +828,14 @@ function videoSync() {
   slot.classList.toggle('fehlt', url === 'fehlt');
   if (!url || url === 'fehlt') { v.pause(); v.remove(); return; }
   if (L.videoUe !== ue.id) { L.videoUe = ue.id; L.vZeit = null; v.src = url; }
-  const art = slot.classList.contains('gross') ? 'gross' : slot.classList.contains('vorschau') ? 'vorschau' : 'karte';
+  const art = slot.classList.contains('gross') ? 'gross' : 'karte';
   if (art !== L.vArt) {   // neuer Platz: Ausschnitt von vorn
     L.vArt = art;
-    if (art !== 'vorschau' && v.readyState > 0) { v.currentTime = ue.video.start || 0; L.vZeit = null; }
+    if (v.readyState > 0) { v.currentTime = ue.video.start || 0; L.vZeit = null; }
   }
   if (v.parentNode !== slot) slot.appendChild(v);
-  videoFuellen();
   const st = cur();
-  if (art === 'vorschau') { v.muted = true; videoSpielen(); }
-  else if (art === 'gross') { v.muted = S.einst.videoTon === 'aus'; videoSpielen(); }
+  if (art === 'gross') { v.muted = S.einst.videoTon === 'aus'; videoSpielen(); }
   else {
     const sichtbar = st.typ === 'arbeit' && L.karte === 'hinten' && !L.halt;
     v.muted = tonStumm(ue.id);
@@ -853,18 +844,18 @@ function videoSync() {
   lautKnopf();
 }
 
-// Lange Pause vor einer neuen Übung: deren Video läuft klein und stumm mit. Antippen: groß, mit Ton, die Pause hält an.
-// Nach einem Durchlauf geht es zurück in die Pause, mit mindestens 15 s Restzeit.
+// Knopf „Vorschau“ in jeder Phase vor einer Übung (Bereit, Pause, Seitenwechsel), wenn die nächste Übung ein Video hat.
+// Antippen: Video groß mit Ton, die Pause hält an. Nach einem Durchlauf zurück, mit mindestens 15 s Restzeit.
 function vorschauStart() {
-  L.vorschauWarHalt = L.halt;
-  anhalten(true);
+  L.vorschauWarHalt = L.halt || L.warte;
+  if (!L.warte) anhalten(true);
   L.vorschauGross = true;
-  if (S.einst.videoTon !== 'aus') { const k = naechsteArbeit(L.i + 1); if (k >= 0) L.tonGehoert.add(L.ues[L.out[k].ui].ue.id); }   // zählt als „einmal“
+  if (S.einst.videoTon !== 'aus') { const k = L.einschub ? L.i : naechsteArbeit(L.i + 1); if (k >= 0) L.tonGehoert.add(L.ues[L.out[k].ui].ue.id); }   // zählt als „einmal“
   render();
 }
 function vorschauEnde() {
   L.vorschauGross = false;
-  if (Number.isFinite(L.dauerMs)) { L.haltRest = Math.max(L.haltRest, 15000); L.dauerMs = Math.max(L.dauerMs, L.haltRest); }
+  if (!L.warte && Number.isFinite(L.dauerMs)) { L.haltRest = Math.max(L.haltRest, 15000); L.dauerMs = Math.max(L.dauerMs, L.haltRest); }
   if (!L.vorschauWarHalt) anhalten(false); else render();
 }
 
@@ -975,8 +966,8 @@ function render() {
   const ziel = kNext >= 0 ? L.out[kNext] : null;
   const x = L.ues[(ziel || st).ui];
   const ort = `<b>${esc(x.b.name)}</b> · Übung ${(ziel || st).ui + 1} von ${L.ues.length}`;
-  const zeigVideo = !arbeit && st.uebungsPause && L.vorschauAus !== L.i && !L.halt && st.dauer >= 30 && ziel && x.ue.video && L.urls[x.ue.video.id] && L.urls[x.ue.video.id] !== 'fehlt';
-  if (!zeigVideo) L.vorschauGross = false;
+  const hatVorschau = !arbeit && ziel && x.ue.video && L.urls[x.ue.video.id] && L.urls[x.ue.video.id] !== 'fehlt';
+  if (!hatVorschau) L.vorschauGross = false;
 
   let vorn = '', hinten = '';
   if (arbeit) {
@@ -1014,8 +1005,8 @@ function render() {
     const vor = ziel ? `<div class="t-vorschau" ${O(8)}>
         <div class="t-gleich">Gleich · ${satzText(ziel)}${x.ue.kg != null ? ' · ' + esc(kgText(x.ue)) : ''}</div>
         <div class="t-name">${esc(x.ue.name)}</div>
-        ${x.ue.hinweis && !zeigVideo ? `<div class="t-hinweis">${esc(x.ue.hinweis)}</div>` : ''}
-        ${zeigVideo ? `<div class="t-video-slot vorschau" data-ue="${x.ue.id}"></div><div class="t-video-tipp">Antippen: Vorschau mit Ton</div>` : ''}
+        ${x.ue.hinweis ? `<div class="t-hinweis">${esc(x.ue.hinweis)}</div>` : ''}
+        ${hatVorschau ? `<button class="t-vorschau-knopf" type="button" data-a="vorschau">${ICON.play}Vorschau</button>` : ''}
       </div>` : '';
     vorn = `<div class="t-links">${ringHtml(L.warte ? 'bereit?' : '').replace('class="t-ring"', `class="t-ring" ${O(4)}`)}</div>
       <div class="t-rechts"><div class="t-zeile" ${O(1)}><b>${titel}</b></div>${vor}${unten}</div>`;
@@ -1077,7 +1068,8 @@ function aktion(a) {
       bestaetigen('Training beenden?', 'Der Plan bleibt, wie er ist.', 'Beenden', () => trainingZu(), 'Weiter trainieren', sheetWeiter);
       break;
     }
-    case 'halt': if (L.vorschauGross) vorschauEnde(); else if (L.warte) aktion('los'); else { if (!L.halt) L.vorschauAus = L.i; anhalten(!L.halt); } break;
+    case 'halt': if (L.vorschauGross) vorschauEnde(); else if (L.warte) aktion('los'); else anhalten(!L.halt); break;
+    case 'vorschau': if (!L.vorschauGross) vorschauStart(); break;
     case 'fertig': ton('leise'); geheZu(L.i + 1); break;
     case 'los': phaseFertig(jetzt()); break;
     case 'fortsetzen': anhalten(false); break;
@@ -1145,7 +1137,7 @@ function springeZu(ui) {
   });
 }
 function gewZu() { clearTimeout(gewTimer); gewTimer = setTimeout(() => { if (L && L.gewOffen) { L.gewOffen = false; render(); } }, 5000); }
-function kartenTipp(e) {
+function kartenTipp() {
   if (!L || L.ende) return;
   const st = cur();
   if (st.typ === 'arbeit') {
@@ -1154,15 +1146,14 @@ function kartenTipp(e) {
     $('#training .t-karte')?.classList.toggle('hinten', L.karte === 'hinten');
     videoSync();
   } else if (L.vorschauGross) vorschauEnde();
-  else if (e?.target?.closest('.t-video-slot.vorschau')) vorschauStart();
-  else if (!L.halt && !L.warte) { L.vorschauAus = L.i; anhalten(true); }   // Easy Stop: ein Tipp in der Pause hält an und räumt die Vorschau weg
+  else if (!L.halt && !L.warte) anhalten(true);   // Easy Stop: ein Tipp in der Pause hält an
 }
 function trainingVerbinden() {
   const t = $('#training');
   t.addEventListener('click', e => {
     const a = e.target.closest('[data-a]')?.dataset.a;
     if (a) { audioAn(); aktion(a); return; }
-    if (e.target.closest('.t-karte')) kartenTipp(e);
+    if (e.target.closest('.t-karte')) kartenTipp();
   });
   let x0 = null, y0 = 0;
   t.addEventListener('touchstart', e => { if (e.touches.length === 1) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } }, { passive: true });
