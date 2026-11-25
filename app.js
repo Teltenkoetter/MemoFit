@@ -109,7 +109,7 @@ function speichern() {
 // ── Zustand ─────────────────────────────────────────────
 const W_WARMUP = { modus: 'zeit', zeit: 30, wdh: 12, wdhBis: null, saetze: 3, kann: true, pSatz: 15, pUebung: 30 };
 const W_HAUPT  = { modus: 'wdh', zeit: 40, wdh: 12, wdhBis: 15, saetze: 4, kann: true, pSatz: 60, pUebung: 90 };
-const EINST = { auto: true, vorlauf: 5, wechsel: 5, toene: true, karte: 'vorn', videoTon: 'erst' };
+const EINST = { auto: true, vorlauf: 5, wechsel: 5, toene: true, karte: 'vorn', videoTon: 'erst', musik: 'vorrang' };
 
 function leer() { return { version: 1, plaene: [], uebungen: {}, einst: { ...EINST }, verlauf: [] }; }
 let S = leer();
@@ -583,6 +583,7 @@ async function renderEinst() {
   segSetzen('e-wechsel', S.einst.wechsel);
   segSetzen('e-toene', S.einst.toene ? 1 : 0);
   segSetzen('e-videoton', S.einst.videoTon);
+  segSetzen('e-musik', S.einst.musik);
   const t = $('#speicher-text');
   try {
     const est = navigator.storage?.estimate ? await navigator.storage.estimate() : null;
@@ -599,6 +600,7 @@ function einstVerbinden() {
   const seg = (id, f) => $$(`#${id} button`).forEach(b => b.onclick = () => { f(b.dataset.wert); speichern(); renderEinst(); });
   seg('e-auto', v => S.einst.auto = v === '1');
   seg('e-videoton', v => S.einst.videoTon = v);
+  seg('e-musik', v => { S.einst.musik = v; audioPruefen(); });
   seg('e-vorlauf', v => S.einst.vorlauf = +v);
   seg('e-wechsel', v => S.einst.wechsel = +v);
   seg('e-toene', v => { S.einst.toene = v === '1'; if (S.einst.toene) { audioAn(); ton('los'); } });
@@ -633,12 +635,13 @@ function einstVerbinden() {
 
 // ── Töne (Web Audio, erst nach einem Tipp möglich) ─────
 let ac = null;
-// iOS (Safari 17+): „ambient“ mischt. Musik aus anderen Apps läuft in voller Lautstärke weiter,
-// 3-2-1 und Videoton liegen darüber. Preis: Im Lautlos-Modus bleibt MemoFit stumm.
+// Musik vom Handy (Einstellung):
+// „vorrang“ = Safari wie gewohnt („auto“): Töne und Video sind hörbar, iOS kann die Musik dafür anhalten.
+// „mischen“ = „ambient“: Musik läuft weiter, Ton liegt darüber, aber im Lautlos-Modus bleibt MemoFit stumm.
 function audioSession(typ) { try { if (navigator.audioSession && navigator.audioSession.type !== typ) navigator.audioSession.type = typ; } catch {} }
-function audioPruefen() { audioSession('ambient'); }
+function audioPruefen() { audioSession(S.einst.musik === 'mischen' ? 'ambient' : 'auto'); }
 function audioAn() {
-  audioSession('ambient');
+  audioPruefen();
   try { ac ||= new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch {}
 }
 function piep(f, start, dauer, laut = 0.22) {
@@ -693,7 +696,7 @@ function trainingZu() {
   clearInterval(tickTimer); tickTimer = null;
   if (L) { try { L.video.pause(); L.video.removeAttribute('src'); L.video.load(); } catch {} Object.values(L.urls).forEach(u => { if (u !== 'fehlt') URL.revokeObjectURL(u); }); }
   L = null;
-  audioSession('ambient');
+  audioPruefen();
   wachLoslassen();
   document.documentElement.classList.remove('im-training');
   $('#training').classList.add('hidden'); $('#training').innerHTML = '';
@@ -738,7 +741,7 @@ function lautKnopf() {
   b.setAttribute('aria-label', `Videoton: ${TON_NAME[m]}`);
 }
 function lautUmschalten() {
-  const folge = { erst: 'immer', immer: 'aus', aus: 'erst' };
+  const folge = { aus: 'erst', erst: 'immer', immer: 'aus' };
   S.einst.videoTon = folge[S.einst.videoTon] || 'erst'; speichern();
   if (S.einst.videoTon === 'erst' && L.videoUe) L.tonGehoert.delete(L.videoUe);   // „einmal“: das laufende Video noch einmal mit Ton
   const v = L.video;
