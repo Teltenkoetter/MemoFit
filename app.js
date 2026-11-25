@@ -247,7 +247,7 @@ function renderStart() {
         </div>
         <span class="pk-start" aria-hidden="true">${ICON.play}</span>
       </button>
-      <button class="pk-ablauf" type="button" data-ablauf="${p.id}">Ablauf · bei einer Übung beginnen</button>
+      <button class="pk-ablauf" type="button" data-ablauf="${p.id}">${svg('<path d="M4 6h16M4 12h16M4 18h10"/>', 2)}Ablauf · bei einer Übung beginnen</button>
     </div>`).join('');
 }
 
@@ -760,15 +760,12 @@ function videoElement() {
   v.addEventListener('loadedmetadata', () => { const c = L && S.uebungen[L.videoUe]?.video; if (c?.start) v.currentTime = c.start; videoFuellen(); });
   return v;
 }
-// Weicht das Seitenverhältnis nur wenig ab (bis 12 %), füllt das Video den Platz und wird am Rand minimal beschnitten.
-// Bei großer Abweichung (Querformat-Video im Hochformat) bleibt es ganz sichtbar.
+// Im Training läuft das Video bildschirmfüllend (CSS: cover). Die kleine Vorschau in der Pause bekommt das Format des Videos.
 function videoFuellen() {
   const v = L?.video, slot = v?.parentNode;
   if (!v || !slot || !v.videoWidth || !slot.clientHeight) return;
   const rv = v.videoWidth / v.videoHeight;
   if (slot.classList.contains('vorschau')) slot.style.aspectRatio = String(rv);   // kleine Vorschau im Format des Videos
-  const rs = slot.clientWidth / slot.clientHeight;
-  v.classList.toggle('fuellt', Math.max(rv, rs) / Math.min(rv, rs) <= 1.12);
 }
 window.addEventListener('resize', () => setTimeout(videoFuellen, 60));
 async function clipsLaden(lauf) {
