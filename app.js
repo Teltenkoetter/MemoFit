@@ -238,14 +238,17 @@ function renderStart() {
     return;
   }
   el.innerHTML = plaene.map(p => `
-    <button class="plan-karte" type="button" data-plan="${p.id}">
-      <div>
-        <div class="pk-name">${esc(p.name)}</div>
-        <div class="pk-bloecke">${p.bloecke.filter(b => b.items.length).map(b => esc(b.name)).join(' · ')}</div>
-        <div class="pk-dauer">${ueAnz(p)} · ca. ${dauerMin(p)} min</div>
-      </div>
-      <span class="pk-start" aria-hidden="true">${ICON.play}</span>
-    </button>`).join('');
+    <div class="pk-wrap">
+      <button class="plan-karte" type="button" data-plan="${p.id}">
+        <div>
+          <div class="pk-name">${esc(p.name)}</div>
+          <div class="pk-bloecke">${p.bloecke.filter(b => b.items.length).map(b => esc(b.name)).join(' · ')}</div>
+          <div class="pk-dauer">${ueAnz(p)} · ca. ${dauerMin(p)} min</div>
+        </div>
+        <span class="pk-start" aria-hidden="true">${ICON.play}</span>
+      </button>
+      <button class="pk-ablauf" type="button" data-ablauf="${p.id}">Ablauf · bei einer Übung beginnen</button>
+    </div>`).join('');
 }
 
 function renderPlaene() {
@@ -718,7 +721,7 @@ let L = null, tickTimer = null, gewTimer = null;
 const jetzt = () => Date.now();
 const RING_U = 2 * Math.PI * 45;
 
-function trainingStart(planId) {
+function trainingStart(planId, abUi = 0) {
   const plan = S.plaene.find(p => p.id === planId); if (!plan) return;
   const { ues, out } = ablauf(plan);
   if (!out.length) return;
@@ -731,7 +734,7 @@ function trainingStart(planId) {
   document.documentElement.classList.add('im-training');
   $('#training').classList.remove('hidden');
   wachHalten();
-  geheZu(0, jetzt(), false);
+  if (abUi > 0) geheZu(uebungStart(abUi), jetzt(), true); else geheZu(0, jetzt(), false);
   clearInterval(tickTimer); tickTimer = setInterval(tick, 100);
 }
 function trainingZu() {
@@ -754,9 +757,20 @@ function videoElement() {
   v.addEventListener('timeupdate', videoLoop);
   v.addEventListener('ended', videoLoop);
   ['play', 'pause', 'volumechange'].forEach(ev => v.addEventListener(ev, () => { audioPruefen(); lautKnopf(); }));
-  v.addEventListener('loadedmetadata', () => { const c = L && S.uebungen[L.videoUe]?.video; if (c?.start) v.currentTime = c.start; });
+  v.addEventListener('loadedmetadata', () => { const c = L && S.uebungen[L.videoUe]?.video; if (c?.start) v.currentTime = c.start; videoFuellen(); });
   return v;
 }
+// Weicht das Seitenverhältnis nur wenig ab (bis 12 %), füllt das Video den Platz und wird am Rand minimal beschnitten.
+// Bei großer Abweichung (Querformat-Video im Hochformat) bleibt es ganz sichtbar.
+function videoFuellen() {
+  const v = L?.video, slot = v?.parentNode;
+  if (!v || !slot || !v.videoWidth || !slot.clientHeight) return;
+  const rv = v.videoWidth / v.videoHeight;
+  if (slot.classList.contains('vorschau')) slot.style.aspectRatio = String(rv);   // kleine Vorschau im Format des Videos
+  const rs = slot.clientWidth / slot.clientHeight;
+  v.classList.toggle('fuellt', Math.max(rv, rs) / Math.min(rv, rs) <= 1.12);
+}
+window.addEventListener('resize', () => setTimeout(videoFuellen, 60));
 async function clipsLaden(lauf) {
   const ids = [...new Set(lauf.ues.map(x => x.ue.video?.id).filter(Boolean))];
   for (const id of ids) {
@@ -808,7 +822,8 @@ function videoLoop() {
   const herum = t < vorher - 0.5;   // das Video ist von selbst wieder vorn (loop)
   if (amEnde || herum) {
     const lief = !v.paused || v.ended;
-    L.tonGehoert.add(L.videoUe);
+    if (!v.muted) L.tonGehoert.add(L.videoUe);
+    if (L.vorschauGross) { vorschauEnde(); return; }
     v.muted = tonStumm(L.videoUe);
     if (amEnde || t < start - 0.3) { v.currentTime = start; L.vZeit = start; }
     if (lief && v.paused) videoSpielen();
@@ -823,12 +838,37 @@ function videoSync() {
   slot.classList.toggle('fehlt', url === 'fehlt');
   if (!url || url === 'fehlt') { v.pause(); v.remove(); return; }
   if (L.videoUe !== ue.id) { L.videoUe = ue.id; L.vZeit = null; v.src = url; }
+  const art = slot.classList.contains('gross') ? 'gross' : slot.classList.contains('vorschau') ? 'vorschau' : 'karte';
+  if (art !== L.vArt) {   // neuer Platz: Ausschnitt von vorn
+    L.vArt = art;
+    if (art !== 'vorschau' && v.readyState > 0) { v.currentTime = ue.video.start || 0; L.vZeit = null; }
+  }
   if (v.parentNode !== slot) slot.appendChild(v);
+  videoFuellen();
   const st = cur();
-  const sichtbar = st.typ === 'arbeit' && L.karte === 'hinten' && !L.halt;
-  v.muted = tonStumm(ue.id);
-  if (sichtbar) videoSpielen(); else v.pause();
+  if (art === 'vorschau') { v.muted = true; videoSpielen(); }
+  else if (art === 'gross') { v.muted = S.einst.videoTon === 'aus'; videoSpielen(); }
+  else {
+    const sichtbar = st.typ === 'arbeit' && L.karte === 'hinten' && !L.halt;
+    v.muted = tonStumm(ue.id);
+    if (sichtbar) videoSpielen(); else v.pause();
+  }
   lautKnopf();
+}
+
+// Lange Pause vor einer neuen Übung: deren Video läuft klein und stumm mit. Antippen: groß, mit Ton, die Pause hält an.
+// Nach einem Durchlauf geht es zurück in die Pause, mit mindestens 15 s Restzeit.
+function vorschauStart() {
+  L.vorschauWarHalt = L.halt;
+  anhalten(true);
+  L.vorschauGross = true;
+  if (S.einst.videoTon !== 'aus') { const k = naechsteArbeit(L.i + 1); if (k >= 0) L.tonGehoert.add(L.ues[L.out[k].ui].ue.id); }   // zählt als „einmal“
+  render();
+}
+function vorschauEnde() {
+  L.vorschauGross = false;
+  if (Number.isFinite(L.dauerMs)) { L.haltRest = Math.max(L.haltRest, 15000); L.dauerMs = Math.max(L.dauerMs, L.haltRest); }
+  if (!L.vorschauWarHalt) anhalten(false); else render();
 }
 
 const cur = () => L.einschub || L.out[L.i];
@@ -839,7 +879,7 @@ function phaseDauerMs(st) {
 function restMs() { return L.halt ? L.haltRest : L.dauerMs - (jetzt() - L.start); }
 
 function geheZu(k, startZeit = jetzt(), einschub = false) {
-  L.i = k; L.halt = false; L.warte = false; L.piep = -1; L.gewOffen = false; L.einschub = null;
+  L.i = k; L.halt = false; L.warte = false; L.piep = -1; L.gewOffen = false; L.einschub = null; L.vorschauGross = false;
   if (k >= L.out.length) { ende(); return; }
   const st = L.out[k];
   // Sprung per Wischen oder ‹ ›: 3 s „Bereit“, damit die Übung nicht sofort losläuft
@@ -938,6 +978,8 @@ function render() {
   const ziel = kNext >= 0 ? L.out[kNext] : null;
   const x = L.ues[(ziel || st).ui];
   const ort = `<b>${esc(x.b.name)}</b> · Übung ${(ziel || st).ui + 1} von ${L.ues.length}`;
+  const zeigVideo = !arbeit && st.uebungsPause && st.dauer >= 30 && ziel && x.ue.video && L.urls[x.ue.video.id] && L.urls[x.ue.video.id] !== 'fehlt';
+  if (!zeigVideo) L.vorschauGross = false;
 
   let vorn = '', hinten = '';
   if (arbeit) {
@@ -962,6 +1004,9 @@ function render() {
       : x.ue.hinweis
       ? `<div class="t-zeile">${esc(x.ue.name)} · ${satzText(st)}</div><div class="t-hinweis-gross">${esc(x.ue.hinweis)}</div>`
       : `<div class="t-name">${esc(x.ue.name)}</div><div class="t-rueck-leer">Kein Hinweis eingetragen.</div>`;
+  } else if (L.vorschauGross) {
+    vorn = `<div class="t-video-slot gross" data-ue="${x.ue.id}"></div>
+      <div class="t-video-leiste"><div class="t-vtext"><div class="t-vname">${esc(x.ue.name)}</div><div class="t-zeile">Vorschau · Antippen: zurück zur Pause</div></div></div>`;
   } else {
     const titel = st.typ === 'bereit' ? 'Bereit' : st.typ === 'wechsel' ? 'Seite wechseln' : 'Pause';
     let unten = '';
@@ -972,7 +1017,8 @@ function render() {
     const vor = ziel ? `<div class="t-vorschau" ${O(8)}>
         <div class="t-gleich">Gleich · ${satzText(ziel)}${x.ue.kg != null ? ' · ' + esc(kgText(x.ue)) : ''}</div>
         <div class="t-name">${esc(x.ue.name)}</div>
-        ${x.ue.hinweis ? `<div class="t-hinweis">${esc(x.ue.hinweis)}</div>` : ''}
+        ${x.ue.hinweis && !zeigVideo ? `<div class="t-hinweis">${esc(x.ue.hinweis)}</div>` : ''}
+        ${zeigVideo ? `<div class="t-video-slot vorschau" data-ue="${x.ue.id}"></div><div class="t-video-tipp">Antippen: Vorschau mit Ton</div>` : ''}
       </div>` : '';
     vorn = `<div class="t-links">${ringHtml(L.warte ? 'bereit?' : '').replace('class="t-ring"', `class="t-ring" ${O(4)}`)}</div>
       <div class="t-rechts"><div class="t-zeile" ${O(1)}><b>${titel}</b></div>${vor}${unten}</div>`;
@@ -981,12 +1027,12 @@ function render() {
   t.innerHTML = `
     <div class="t-oben">
       <button class="t-x" type="button" data-a="abbrechen" aria-label="Training beenden">✕</button>
-      <div class="t-ort">${ort}</div>
+      <button class="t-ort" type="button" data-a="ablauf" aria-label="Ablauf zeigen">${ort} <span class="t-ort-pfeil" aria-hidden="true"><svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg></span></button>
       ${L.hatVideo ? `<button class="t-x t-laut" type="button" data-a="laut" aria-label="Videoton"></button>` : '<span class="t-platz"></span>'}
     </div>
     <div class="t-mitte">
       <div class="t-karte ${arbeit && L.karte === 'hinten' ? 'hinten' : ''}" role="group" aria-label="Übungskarte">
-        <div class="t-seite t-vorn">${vorn}</div>
+        <div class="t-seite t-vorn${L.vorschauGross ? ' mit-video' : ''}">${vorn}</div>
         ${arbeit ? `<div class="t-seite t-rueck${x.ue.video ? ' mit-video' : ''}">${hinten}</div>` : ''}
       </div>
     </div>
@@ -1030,11 +1076,11 @@ function aktion(a) {
   switch (a) {
     case 'schliessen': trainingZu(); break;
     case 'abbrechen': {
-      const warHalt = L.halt; anhalten(true);
-      bestaetigen('Training beenden?', 'Der Plan bleibt, wie er ist.', 'Beenden', () => trainingZu(), 'Weiter trainieren', () => { if (!warHalt) anhalten(false); });
+      L.sheetHalt = !L.halt; anhalten(true);
+      bestaetigen('Training beenden?', 'Der Plan bleibt, wie er ist.', 'Beenden', () => trainingZu(), 'Weiter trainieren', sheetWeiter);
       break;
     }
-    case 'halt': if (L.warte) aktion('los'); else anhalten(!L.halt); break;
+    case 'halt': if (L.vorschauGross) vorschauEnde(); else if (L.warte) aktion('los'); else anhalten(!L.halt); break;
     case 'fertig': ton('leise'); geheZu(L.i + 1); break;
     case 'los': phaseFertig(jetzt()); break;
     case 'fortsetzen': anhalten(false); break;
@@ -1050,6 +1096,12 @@ function aktion(a) {
     }
     case 'weiter': springe(1); break;
     case 'laut': lautUmschalten(); break;
+    case 'ablauf': {
+      if (L.vorschauGross) vorschauEnde();
+      if (L.ende) break;
+      L.sheetHalt = !L.halt && !L.warte; if (L.sheetHalt) anhalten(true);
+      ablaufSheet(L.plan); break;
+    }
     case 'zurueck': springe(-1); break;
     case 'kg': L.gewOffen = true; render(); gewZu(); break;
     case 'kg+': case 'kg-': {
@@ -1059,8 +1111,44 @@ function aktion(a) {
     }
   }
 }
+// Ablauf: nur Blöcke und Übungsnamen. Im Training: aktuelle Übung hell, erledigte leicht gedimmt. Antippen springt dorthin.
+function ablaufSheet(plan) {
+  if (!plan) return;
+  const ues = planUebungen(plan);
+  let akt = -1;
+  if (L && !L.ende && L.plan === plan) { const st = cur(), k = st.typ === 'arbeit' ? L.i : naechsteArbeit(L.einschub ? L.i : L.i + 1); akt = (k >= 0 ? L.out[k] : st).ui; }
+  let html = '<div class="ablauf">', ui = 0;
+  plan.bloecke.forEach(b => {
+    const zeilen = b.items.filter(it => S.uebungen[it.ue]).map(() => {
+      const x = ues[ui], cls = ui === akt ? ' jetzt' : ui < akt ? ' vorbei' : '';
+      return `<button type="button" class="ab-ue${cls}" data-spring="${ui++}">${esc(x.ue.name)}</button>`;
+    }).join('');
+    if (zeilen) html += `<div class="ab-block">${esc(b.name)}</div>${zeilen}`;
+  });
+  html += `</div><p class="form-hinweis">${akt >= 0 ? 'Antippen: dort weitermachen.' : 'Antippen: Training startet bei dieser Übung.'}</p>`;
+  sheet(L && L.plan === plan ? 'Ablauf' : plan.name, html);
+  $('#sheet-body .ablauf').onclick = e => {
+    const d = e.target.closest('[data-spring]'); if (!d) return;
+    const ziel = +d.dataset.spring;
+    sheetZu();
+    if (!L || L.plan !== plan) { audioAn(); trainingStart(plan.id, ziel); return; }
+    springeZu(ziel);
+  };
+}
+function sheetWeiter() { if (L && !L.ende && L.sheetHalt) { L.sheetHalt = false; anhalten(false); } }
+function springeZu(ui) {
+  const k = uebungStart(ui); if (k < 0) return;
+  const vorher = { i: L.i, einschub: L.einschub, dauerMs: L.dauerMs, haltRest: L.haltRest, warte: L.warte, halt: L.halt };
+  const weiterLaufen = L.sheetHalt; L.sheetHalt = false;
+  geheZu(k, jetzt(), true);
+  toast(`Weiter mit ${L.ues[ui].ue.name}`, () => {
+    if (!L || L.ende) return;
+    Object.assign(L, vorher, { gewOffen: false, vorschauGross: false, piep: -1 });
+    if (weiterLaufen) anhalten(false); else render();
+  });
+}
 function gewZu() { clearTimeout(gewTimer); gewTimer = setTimeout(() => { if (L && L.gewOffen) { L.gewOffen = false; render(); } }, 5000); }
-function kartenTipp() {
+function kartenTipp(e) {
   if (!L || L.ende) return;
   const st = cur();
   if (st.typ === 'arbeit') {
@@ -1068,14 +1156,16 @@ function kartenTipp() {
     L.karte = L.karte === 'hinten' ? 'vorn' : 'hinten';
     $('#training .t-karte')?.classList.toggle('hinten', L.karte === 'hinten');
     videoSync();
-  } else if (!L.halt && !L.warte) anhalten(true);   // Easy Stop: ein Tipp in der Pause hält an
+  } else if (L.vorschauGross) vorschauEnde();
+  else if (e?.target?.closest('.t-video-slot.vorschau')) vorschauStart();
+  else if (!L.halt && !L.warte) anhalten(true);   // Easy Stop: ein Tipp in der Pause hält an
 }
 function trainingVerbinden() {
   const t = $('#training');
   t.addEventListener('click', e => {
     const a = e.target.closest('[data-a]')?.dataset.a;
     if (a) { audioAn(); aktion(a); return; }
-    if (e.target.closest('.t-karte')) kartenTipp();
+    if (e.target.closest('.t-karte')) kartenTipp(e);
   });
   let x0 = null, y0 = 0;
   t.addEventListener('touchstart', e => { if (e.touches.length === 1) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } }, { passive: true });
@@ -1112,12 +1202,13 @@ function verbinden() {
   $('#einst-zurueck').onclick = () => zeige(vorEinst === 'einst' ? 'start' : vorEinst);
   $('#btn-info').onclick = () => { $('#hilfe').classList.remove('hidden'); fensterOffen(); };
   $('#hilfe-zu').onclick = () => { $('#hilfe').classList.add('hidden'); fensterOffen(); };
-  $('#sheet-zu').onclick = () => { sheetZu(); if (L && L.halt && !L.ende) anhalten(false); };
+  $('#sheet-zu').onclick = () => { sheetZu(); sheetWeiter(); };
   $('#hilfe').addEventListener('click', e => { if (e.target.id === 'hilfe') { $('#hilfe').classList.add('hidden'); fensterOffen(); } });
   $$('#hilfe .hz-i').forEach(el => { const p = HZ[el.dataset.i]; if (p) el.innerHTML = svg(p); });
 
   $('#start-liste').addEventListener('click', e => {
     const p = e.target.closest('[data-plan]'); if (p) { trainingStart(p.dataset.plan); return; }
+    const ab = e.target.closest('[data-ablauf]'); if (ab) { ablaufSheet(S.plaene.find(x => x.id === ab.dataset.ablauf)); return; }
     if (e.target.closest('[data-a="zu-plaenen"]')) { if (S.plaene.length) { aktPlanId = S.plaene[0].id; zeige('plan'); } else neuerPlan(); }
   });
 

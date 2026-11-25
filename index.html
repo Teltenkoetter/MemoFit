@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <title>MemoFit</title>
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -171,7 +171,7 @@
     </button>
     <button class="nav-item" data-view="plaene" type="button">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-      <span>Pläne</span>
+      <span>Planung</span>
     </button>
   </nav>
 
@@ -225,6 +225,8 @@
             <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Video</strong> — Karte antippen → Video im Loop, mit Zeit oder „fertig“ unten · die Pause zeigt nur Name und Hinweis</div></div>
             <div class="hz"><span class="hz-i" data-i="ton"></span><div class="hz-t"><strong>Lautsprecher oben rechts</strong> — Videoton umschalten: stumm (✕) · einmal (1) · immer (∞) · gilt auch für die nächsten Trainings</div></div>
             <div class="hz"><span class="hz-i" data-i="gewicht"></span><div class="hz-t"><strong>Gewicht</strong> — „17,5 kg“ antippen → + und − · ändert um den Wert aus der Übung · bleibt für das nächste Mal gespeichert</div></div>
+            <div class="hz"><span class="hz-i" data-i="plaene"></span><div class="hz-t"><strong>Ablauf</strong> — oben in der Mitte antippen · Blöcke und Übungen auf einen Blick · eine Übung antippen: dort weitermachen · auch auf der Startseite unter dem Plan</div></div>
+            <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Vorschau</strong> — in langen Pausen läuft das Video der nächsten Übung klein und stumm · antippen: groß mit Ton, danach geht die Pause mit mindestens 15 s weiter</div></div>
             <div class="hz"><span class="hz-i" data-i="wischen"></span><div class="hz-t"><strong>Wischen</strong> — nach links: nächste Übung · nach rechts: zurück · oder ‹ › unten</div></div>
             <div class="hz"><span class="hz-i" data-i="halt"></span><div class="hz-t"><strong>Anhalten</strong> — ❙❙ unten · ✕ oben beendet das Training</div></div>
             <div class="hz"><span class="hz-i" data-i="drehen"></span><div class="hz-t"><strong>Quer oder hoch</strong> — Handy auf die Bank stellen oder auf den Boden legen · der Bildschirm bleibt an</div></div>
@@ -232,7 +234,7 @@
         </div>
         <div class="modal-divider"></div>
         <div class="modal-section">
-          <div class="modal-section-title"><span class="hz-i klein" data-i="plaene"></span>Pläne</div>
+          <div class="modal-section-title"><span class="hz-i klein" data-i="plaene"></span>Planung</div>
           <div class="hz-liste">
             <div class="hz"><span class="hz-i" data-i="plaene"></span><div class="hz-t"><strong>Plan</strong> — ein Trainingstag · Blöcke wie Warm-up, Hauptteil A, Hauptteil B fassen die Übungen zusammen</div></div>
             <div class="hz"><span class="hz-i" data-i="werte"></span><div class="hz-t"><strong>Werte je Übung</strong> — Zeit oder Wiederholungen · Sätze · Pause zwischen Sätzen · Pause vor der nächsten Übung · eine neue Übung übernimmt die Werte der Übung davor</div></div>
@@ -290,6 +292,6 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"><span id="toast-text"></span><button id="toast-btn" type="button" class="hidden">Rückgängig</button></div>
 
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>
