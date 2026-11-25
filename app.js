@@ -121,17 +121,18 @@ function neueUebung(name, hinweis = '', extra = {}) {
 }
 // Neutraler, erfundener Beispielplan (keine echten Pläne im Upload)
 function beispielplan() {
-  const it = (ue, eigen = null) => ({ id: uid(), ue: ue.id, eigen });
+  const it = (ue, w) => ({ id: uid(), ue: ue.id, w: { ...w } });
+  const warm = { ...W_WARMUP, saetze: 2, kann: false }, haupt = { ...W_HAUPT, saetze: 3, wdh: 10, wdhBis: 12 };
   return {
     id: uid(), name: 'Beispiel', bloecke: [
-      { id: uid(), name: 'Warm-up', w: { ...W_WARMUP, saetze: 2, kann: false }, items: [
-        it(neueUebung('Hampelmann', 'locker, Arme ganz nach oben')),
-        it(neueUebung('Armkreisen', 'große Kreise, erst vorwärts, dann rückwärts')),
+      { id: uid(), name: 'Warm-up', items: [
+        it(neueUebung('Hampelmann', 'locker, Arme ganz nach oben'), warm),
+        it(neueUebung('Armkreisen', 'große Kreise, erst vorwärts, dann rückwärts'), warm),
       ] },
-      { id: uid(), name: 'Hauptteil', w: { ...W_HAUPT, saetze: 3, wdh: 10, wdhBis: 12 }, items: [
-        it(neueUebung('Ausfallschritt', 'Knie über dem Fuß, Oberkörper aufrecht', { seiten: true })),
-        it(neueUebung('Rudern mit Band', 'Schultern weg von den Ohren', { kg: 4, anzahl: 2, schritt: 1 })),
-        it(neueUebung('Unterarmstütz', 'Bauch fest, kein Hohlkreuz'), { ...W_HAUPT, modus: 'zeit', zeit: 30, saetze: 3, kann: true }),
+      { id: uid(), name: 'Hauptteil', items: [
+        it(neueUebung('Ausfallschritt', 'Knie über dem Fuß, Oberkörper aufrecht', { seiten: true }), haupt),
+        it(neueUebung('Rudern mit Band', 'Schultern weg von den Ohren', { kg: 4, anzahl: 2, schritt: 1 }), haupt),
+        it(neueUebung('Unterarmstütz', 'Bauch fest, kein Hohlkreuz'), { ...haupt, modus: 'zeit', zeit: 30, wdhBis: null }),
       ] },
     ],
   };
@@ -139,6 +140,10 @@ function beispielplan() {
 function zustandAus(z) {
   const n = leer();
   n.plaene = Array.isArray(z.plaene) ? z.plaene : [];
+  n.plaene.forEach(p => (p.bloecke || []).forEach(b => {
+    (b.items || []).forEach(it => { if (!it.w) it.w = { ...W_HAUPT, ...(b.w || {}), ...(it.eigen || {}) }; delete it.eigen; });
+    delete b.w;
+  }));
   n.uebungen = z.uebungen && typeof z.uebungen === 'object' ? z.uebungen : {};
   n.einst = { ...EINST, ...(z.einst || {}) };
   n.verlauf = Array.isArray(z.verlauf) ? z.verlauf : [];
@@ -153,7 +158,14 @@ function aufraeumen() {
 }
 
 // ── Werte, Ablauf, Dauer ────────────────────────────────
-const werte = (b, it) => ({ ...b.w, ...(it.eigen || {}) });
+// Werte gehören zur Übung im Plan (dieselbe Übung kann in zwei Plänen anders laufen)
+const werte = (b, it) => ({ ...W_HAUPT, ...(it.w || {}) });
+const werteKurz = w => werteText(w).split(' · Pause')[0];
+// Vorschlag für eine neue Übung: die Werte der Übung davor
+function werteVorschlag(p, bi) {
+  for (let k = bi; k >= 0; k--) { const last = p.bloecke[k].items.at(-1); if (last) return { ...werte(p.bloecke[k], last) }; }
+  return { ...(bi === 0 ? W_WARMUP : W_HAUPT) };
+}
 function werteText(w) {
   const n = w.saetze;
   const last = w.modus === 'zeit' ? `${sekText(w.zeit)}` : `${w.wdh}${w.wdhBis && w.wdhBis > w.wdh ? '–' + w.wdhBis : ''} ×`;
@@ -285,7 +297,7 @@ function renderPlan() {
       const ue = S.uebungen[it.ue]; if (!ue) return '';
       const w = werte(b, it);
       const teile = [];
-      if (it.eigen) teile.push(werteText(w).split(' · Pause')[0]);
+      teile.push(werteKurz(w));
       if (ue.seiten) teile.push('re/li');
       if (ue.kg != null) teile.push(kgText(ue));
       if (ue.video) teile.push('Video');
@@ -294,12 +306,12 @@ function renderPlan() {
       const erstes = bi === 0 && ii === 0, letztes = bi === p.bloecke.length - 1 && ii === b.items.length - 1;
       if (planSort) return `<div class="zeile sortieren"><div><div class="nm">${esc(ue.name)}</div></div>
         <div class="sort-pfeile"><button type="button" data-ue-hoch="${bi}.${ii}" ${erstes ? 'disabled' : ''} aria-label="nach oben">↑</button><button type="button" data-ue-runter="${bi}.${ii}" ${letztes ? 'disabled' : ''} aria-label="nach unten">↓</button></div></div>`;
-      return `<button class="zeile" type="button" data-ue-edit="${bi}.${ii}"><div><div class="nm">${esc(ue.name)}${it.eigen ? '<span class="marke">eigene Werte</span>' : ''}</div>${info}</div><span class="pfeil">›</span></button>`;
+      return `<button class="zeile" type="button" data-ue-edit="${bi}.${ii}"><div><div class="nm">${esc(ue.name)}</div>${info}</div><span class="pfeil">›</span></button>`;
     }).join('');
     const kopf = planSort
       ? `<div class="card-header"><div class="block-kopf-knopf"><div class="bn ohne-stift">${esc(b.name)}</div></div>
           <div class="sort-pfeile"><button type="button" data-block-hoch="${bi}" ${bi === 0 ? 'disabled' : ''} aria-label="Block nach oben">↑</button><button type="button" data-block-runter="${bi}" ${bi === p.bloecke.length - 1 ? 'disabled' : ''} aria-label="Block nach unten">↓</button></div></div>`
-      : `<div class="card-header"><button class="block-kopf-knopf" type="button" data-block-edit="${bi}"><div class="bn">${esc(b.name)}</div><div class="bw">${esc(werteText(b.w))}</div></button></div>`;
+      : `<div class="card-header"><button class="block-kopf-knopf" type="button" data-block-edit="${bi}"><div class="bn">${esc(b.name)}</div></button></div>`;
     return `<div class="card block-karte">${kopf}
       <div class="zeilen">${items || '<p class="zeile-leer">Noch keine Übung.</p>'}</div>
       ${planSort ? '' : `<button class="btn-plus" type="button" data-ue-neu="${bi}">+ Übung</button>`}</div>`;
@@ -317,7 +329,7 @@ function werteFormular(w) {
       <div class="form-group"><label for="w-bis">bis (optional)</label><input type="number" inputmode="numeric" id="w-bis" value="${w.wdhBis ?? ''}" placeholder="–"></div>
     </div>
     <div class="form-group"><label for="w-saetze">Sätze</label><input type="number" inputmode="numeric" id="w-saetze" value="${w.saetze}" min="1" max="10"></div>
-    <label class="schalter-zeile" for="w-kann"><input type="checkbox" id="w-kann" ${w.kann ? 'checked' : ''}><span>Letzter Satz kann<small>z. B. „2–3 Sätze“: In der Pause davor fragt die App leise „Noch einer?“</small></span></label>
+    <label class="schalter-zeile" for="w-kann"><input type="checkbox" id="w-kann" ${w.kann ? 'checked' : ''}><span>Letzter Satz freiwillig<small>z. B. „2–3 Sätze“: In der Pause davor fragt die App „Noch einer?“</small></span></label>
     <div class="form-reihe" style="margin-top:0.6rem">
       <div class="form-group"><label for="w-psatz">Pause zw. Sätzen (s)</label><input type="number" inputmode="numeric" id="w-psatz" value="${w.pSatz}" min="0"></div>
       <div class="form-group"><label for="w-pue">vor nächster Übung (s)</label><input type="number" inputmode="numeric" id="w-pue" value="${w.pUebung}" min="0"></div>
@@ -355,19 +367,16 @@ function planNameSheet(neu) {
 
 function blockSheet(bi) {
   const p = aktPlan(), neu = bi == null;
-  const b = neu ? { id: uid(), name: '', w: { ...(p.bloecke.at(-1)?.w || W_HAUPT) }, items: [] } : p.bloecke[bi];
+  const b = neu ? { id: uid(), name: '', items: [] } : p.bloecke[bi];
   sheet(neu ? 'Neuer Block' : 'Block', `
     <div class="form-group"><label for="b-name">Name</label><input type="text" id="b-name" value="${esc(b.name)}" placeholder="z. B. Hauptteil C" autocomplete="off"></div>
-    <p class="card-text">Diese Werte gelten für alle Übungen im Block. Eine Übung kann eigene Werte bekommen.</p>
-    ${werteFormular(b.w)}
+    <p class="card-text">Ein Block fasst Übungen zusammen, etwa Warm-up oder Hauptteil. Zeit, Wiederholungen, Sätze und Pausen stehen bei jeder Übung.</p>
     <div class="btn-reihe">
       <button class="btn-primary" id="b-ok" type="button">Speichern</button>
       ${neu ? '' : '<button class="btn-leise" id="b-weg" type="button">Block entfernen</button>'}
     </div>`);
-  werteFormularVerbinden();
   $('#b-ok').onclick = () => {
     b.name = $('#b-name').value.trim() || b.name || 'Block';
-    b.w = werteLesen();
     if (neu) p.bloecke.push(b);
     speichern(); sheetZu(); renderPlan();
   };
@@ -386,10 +395,10 @@ const sortName = (a, c) => a.name.localeCompare(c.name, 'de');
 function uebungSheet(bi, ii, bibId = null) {
   const bib = bi == null;
   const p = bib ? null : aktPlan(), b = bib ? null : p.bloecke[bi], neu = bib ? !bibId : ii == null;
-  const it = bib ? null : (neu ? { id: uid(), ue: null, eigen: null } : b.items[ii]);
+  const it = bib ? null : (neu ? { id: uid(), ue: null, w: null } : b.items[ii]);
   let ue = neu ? { name: '', hinweis: '', seiten: false, kg: null, anzahl: 1, schritt: 2.5 } : S.uebungen[bib ? bibId : it.ue];
   let gewaehlt = neu ? null : ue.id;   // vorhandene Übung aus der Bibliothek
-  const eigen = !bib && !!it.eigen, w = bib ? { ...W_HAUPT } : (it.eigen ? werte(b, it) : { ...b.w });
+  const w = bib ? null : (neu ? werteVorschlag(p, bi) : werte(b, it));
   const vorhanden = bib ? [] : Object.values(S.uebungen).filter(u => !b.items.some(i => i.ue === u.id)).sort(sortName);
   const andere = neu ? [] : plaeneMit(ue.id, bib ? null : p.id);
   const auchText = l => bib ? (l.length ? `Steht in: ${l.join(', ')}. Änderungen gelten dort mit.` : 'Steht in keinem Plan.') : (l.length ? `Auch in: ${l.join(', ')}. Name, Hinweis und Gewicht gelten dort mit.` : '');
@@ -401,25 +410,28 @@ function uebungSheet(bi, ii, bibId = null) {
     <p class="card-text ${auchText(andere) ? '' : 'hidden'}" id="u-auch">${esc(auchText(andere))}</p>
     <div class="form-group"><label for="u-name">Name</label><input type="text" id="u-name" value="${esc(ue.name)}" placeholder="z. B. Gobletsquat" autocomplete="off"></div>
     <div class="form-group"><label for="u-hinweis">Hinweis</label><textarea id="u-hinweis" rows="2" placeholder="z. B. Fersen erhöht, so tief wie möglich">${esc(ue.hinweis)}</textarea></div>
+    ${bib ? '' : `<div class="modal-divider"></div>
+    <div class="form-group"><label>In diesem Plan</label></div>
+    ${werteFormular(w)}`}
+    <div class="modal-divider"></div>
     <label class="schalter-zeile" for="u-seiten"><input type="checkbox" id="u-seiten" ${ue.seiten ? 'checked' : ''}><span>Seiten re/li<small>Erst rechts, kurz „Seite wechseln“, dann links</small></span></label>
     <div class="form-reihe" style="margin-top:0.6rem">
       <div class="form-group"><label for="u-kg">Gewicht (kg)</label><input type="text" inputmode="decimal" id="u-kg" value="${ue.kg != null ? komma(ue.kg) : ''}" placeholder="ohne"></div>
-      <div class="form-group"><label for="u-schritt">Schritt + / −</label><select id="u-schritt">${[0.5, 1, 1.25, 2, 2.5, 5].map(s => `<option value="${s}" ${s === ue.schritt ? 'selected' : ''}>${komma(s)} kg</option>`).join('')}</select></div>
+      <div class="form-group u-mitkg"><label for="u-schritt">Ändern um</label><select id="u-schritt">${[0.5, 1, 1.25, 2, 2.5, 5].map(s => `<option value="${s}" ${s === ue.schritt ? 'selected' : ''}>${komma(s)} kg</option>`).join('')}</select></div>
     </div>
-    <label class="schalter-zeile" for="u-zwei"><input type="checkbox" id="u-zwei" ${ue.anzahl === 2 ? 'checked' : ''}><span>2 × (je Hand)<small>z. B. „2 × 5 kg“</small></span></label>
+    <p class="form-hinweis u-mitkg">Im Training das Gewicht antippen: + und − ändern es um diesen Wert.</p>
+    <label class="schalter-zeile u-mitkg" for="u-zwei"><input type="checkbox" id="u-zwei" ${ue.anzahl === 2 ? 'checked' : ''}><span>2 × (je Hand)<small>z. B. „2 × 5 kg“</small></span></label>
     <div class="modal-divider"></div>
     <div class="form-group"><label>Video</label><div id="u-video"></div>
       <input type="file" id="u-datei" accept="video/*" hidden></div>
-    ${bib ? '' : `<div class="modal-divider"></div>
-    <div class="form-group"><label>Werte</label>
-      <div class="seg" id="u-werte"><button type="button" data-wert="block" class="${eigen ? '' : 'an'}">wie Block</button><button type="button" data-wert="eigen" class="${eigen ? 'an' : ''}">eigene</button></div>
-      <p class="form-hinweis ${eigen ? 'hidden' : ''}" id="u-blocktext">${esc(b.name)}: ${esc(werteText(b.w))}</p></div>
-    <div id="u-eigen" class="${eigen ? '' : 'hidden'}">${werteFormular(w)}</div>`}
     <div class="btn-reihe">
       <button class="btn-primary" id="u-ok" type="button">Speichern</button>
       ${neu ? '' : bib ? '<button class="btn-leise" id="u-del" type="button">Übung löschen</button>' : '<button class="btn-leise" id="u-weg" type="button">Aus dem Block entfernen</button>'}
     </div>`);
-  werteFormularVerbinden();
+  if (!bib) werteFormularVerbinden();
+  // Schritt und 2 × nur zeigen, wenn ein Gewicht eingetragen ist
+  const kgSicht = () => $$('#sheet .u-mitkg').forEach(el => el.classList.toggle('hidden', $('#u-kg').value.trim() === ''));
+  $('#u-kg').oninput = kgSicht; kgSicht();
   // ── Video: wählen, Ausschnitt setzen ──
   let vs = null, probe = false;
   const vsAus = v => { if (vs?.url && vs.neu) URL.revokeObjectURL(vs.url); vs = v ? { ...v } : null; if (vs && !vs.neu) vsLaden(); videoBereich(); };
@@ -484,18 +496,13 @@ function uebungSheet(bi, ii, bibId = null) {
     if (f.size > 200 * 1048576) toast(`Großes Video (${mbText(f.size)}). Kürzen spart Platz.`);
   };
   vsAus(ue.video || null);
-  $$('#u-werte button').forEach(btn => btn.onclick = () => {
-    $$('#u-werte button').forEach(x => x.classList.toggle('an', x === btn));
-    $('#u-eigen').classList.toggle('hidden', btn.dataset.wert !== 'eigen');
-    $('#u-blocktext').classList.toggle('hidden', btn.dataset.wert === 'eigen');
-  });
   $$('#u-vorh [data-vorh]').forEach(btn => btn.onclick = () => {
     const an = gewaehlt !== btn.dataset.vorh;
     $$('#u-vorh [data-vorh]').forEach(x => x.classList.toggle('an', an && x === btn));
     gewaehlt = an ? btn.dataset.vorh : null;
     const u = an ? S.uebungen[gewaehlt] : { name: '', hinweis: '', seiten: false, kg: null, anzahl: 1, schritt: 2.5 };
     $('#u-name').value = u.name; $('#u-hinweis').value = u.hinweis; $('#u-seiten').checked = u.seiten;
-    $('#u-kg').value = u.kg != null ? komma(u.kg) : ''; $('#u-zwei').checked = u.anzahl === 2; $('#u-schritt').value = String(u.schritt);
+    $('#u-kg').value = u.kg != null ? komma(u.kg) : ''; $('#u-zwei').checked = u.anzahl === 2; $('#u-schritt').value = String(u.schritt); kgSicht();
     vsAus(u.video || null);
     const auch = an ? plaeneMit(gewaehlt, null) : [];
     $('#u-auch').classList.toggle('hidden', !auch.length);
@@ -533,7 +540,7 @@ function uebungSheet(bi, ii, bibId = null) {
     else { gewaehlt = neueUebung(name).id; Object.assign(S.uebungen[gewaehlt], daten); }
     if (!bib) {
       it.ue = gewaehlt;
-      it.eigen = $('#u-werte .an').dataset.wert === 'eigen' ? werteLesen() : null;
+      it.w = werteLesen();
       if (neu) b.items.push(it);
     }
     clipKeys = null;
@@ -627,12 +634,13 @@ function einstVerbinden() {
 // ── Töne (Web Audio, erst nach einem Tipp möglich) ─────
 let ac = null;
 // iOS (Safari 17+): Musik aus anderen Apps soll weiterlaufen. Ruhig: „ambient“ (mischt, Musik normal laut).
-// Bei Zählton oder hörbarem Video: „transient“ (Musik wird leiser), danach wieder „ambient“.
+// Bei Zählton: „transient“ (Musik wird kurz leiser). Hörbares Video: „auto“, also die normale Wiedergabe von Safari,
+// denn „ambient“ und „transient“ folgen dem Lautlos-Schalter und lassen das Video sonst stumm.
 let duckBis = 0;
 function audioSession(typ) { try { if (navigator.audioSession && navigator.audioSession.type !== typ) navigator.audioSession.type = typ; } catch {} }
 function audioPruefen() {
   const videoLaut = L && L.video && !L.video.paused && !L.video.muted;
-  audioSession(videoLaut || Date.now() < duckBis ? 'transient' : 'ambient');
+  audioSession(videoLaut ? 'auto' : Date.now() < duckBis ? 'transient' : 'ambient');
 }
 function leiserMachen(ms) { duckBis = Math.max(duckBis, Date.now() + ms); audioPruefen(); setTimeout(audioPruefen, ms + 60); }
 function audioAn() {
@@ -679,7 +687,7 @@ function trainingStart(planId) {
   audioAn();
   navigator.storage?.persist?.().catch(() => {});
   L = { plan, ues, out, i: 0, t0: jetzt(), start: 0, dauerMs: 0, halt: false, haltRest: 0, warte: false, piep: -1, einschub: null, gewOffen: false, ende: false,
-    video: videoElement(), urls: {}, videoUe: null, tonGehoert: new Set(), tonWahl: null,
+    video: videoElement(), urls: {}, videoUe: null, tonGehoert: new Set(), karte: 'vorn',
     hatVideo: ues.some(x => x.ue.video) };
   clipsLaden(L);
   document.documentElement.classList.add('im-training');
@@ -720,22 +728,28 @@ async function clipsLaden(lauf) {
     videoSync();
   }
 }
-// Lautsprecher-Knopf im Training geht vor; sonst die Einstellung (einmal · stumm · immer)
-const tonStumm = ueId => L.tonWahl != null ? !L.tonWahl : (S.einst.videoTon === 'aus' || (S.einst.videoTon === 'erst' && L.tonGehoert.has(ueId)));
+// Videoton: einmal (erster Durchlauf je Übung) · stumm · immer. Der Lautsprecher im Training schaltet weiter.
+const tonStumm = ueId => S.einst.videoTon === 'aus' || (S.einst.videoTon === 'erst' && L.tonGehoert.has(ueId));
+const TON_NAME = { erst: 'einmal', aus: 'stumm', immer: 'immer' };
 const ICON_LAUT = svg('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4Z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>', 1.9);
 const ICON_STUMM = svg('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4Z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>', 1.9);
 function lautKnopf() {
   const b = L && $('#training .t-laut'); if (!b) return;
-  const an = L.video.isConnected && !L.video.paused ? !L.video.muted : (L.tonWahl ?? S.einst.videoTon !== 'aus');
-  b.innerHTML = an ? ICON_LAUT : ICON_STUMM;
-  b.classList.toggle('aus', !an);
-  b.setAttribute('aria-label', an ? 'Videoton aus' : 'Videoton an');
+  const m = S.einst.videoTon;
+  b.innerHTML = (m === 'aus' ? ICON_STUMM : ICON_LAUT) + (m === 'erst' ? '<span class="t-laut-1">1</span>' : '');
+  b.classList.toggle('aus', m === 'aus');
+  b.setAttribute('aria-label', `Videoton: ${TON_NAME[m]}`);
 }
 function lautUmschalten() {
-  const an = !(L.video.isConnected && !L.video.paused ? !L.video.muted : (L.tonWahl ?? S.einst.videoTon !== 'aus'));
-  L.tonWahl = an;
-  L.video.muted = !an;
-  if (an && L.video.isConnected) videoSpielen();   // der Tipp gibt iOS die Freigabe für Ton
+  const folge = { erst: 'aus', aus: 'immer', immer: 'erst' };
+  S.einst.videoTon = folge[S.einst.videoTon] || 'erst'; speichern();
+  if (S.einst.videoTon === 'erst' && L.videoUe) L.tonGehoert.delete(L.videoUe);   // „einmal“: das laufende Video noch einmal mit Ton
+  const v = L.video;
+  if (L.videoUe) {
+    v.muted = tonStumm(L.videoUe);
+    if (!v.muted && v.isConnected && !v.paused) v.play()?.catch(() => {});   // der Tipp gibt iOS die Freigabe für Ton
+  }
+  toast(`Videoton: ${TON_NAME[S.einst.videoTon]}`);
   audioPruefen(); lautKnopf();
 }
 function videoSpielen() {
@@ -765,7 +779,7 @@ function videoSync() {
   if (L.videoUe !== ue.id) { L.videoUe = ue.id; v.src = url; }
   if (v.parentNode !== slot) slot.appendChild(v);
   const st = cur();
-  const sichtbar = st.typ !== 'arbeit' || (S.einst.karte === 'hinten' && !L.halt);
+  const sichtbar = st.typ === 'arbeit' && L.karte === 'hinten' && !L.halt;
   v.muted = tonStumm(ue.id);
   if (sichtbar) videoSpielen(); else v.pause();
   lautKnopf();
@@ -851,7 +865,7 @@ function gleichText() {
   const st = cur(), k = naechsteArbeit(L.i + 1);
   if (k < 0) return 'Gleich: Ende';
   const n = L.out[k];
-  if (n.ui === st.ui) return n.satz === st.satz ? `Gleich: ${seitenText(n.seite)}` : `Gleich: Satz ${n.satz}${n.kann ? ' (kann)' : ''}`;
+  if (n.ui === st.ui) return n.satz === st.satz ? `Gleich: ${seitenText(n.seite)}` : `Gleich: Satz ${n.satz}${n.kann ? ' (freiwillig)' : ''}`;
   return `Gleich: <b>${esc(L.ues[n.ui].ue.name)}</b>`;
 }
 
@@ -886,11 +900,11 @@ function render() {
       : `<div class="t-wdh" ${O(4)}>${w.wdh}${w.wdhBis ? '–' + w.wdhBis : ''}<small>×</small></div><button class="btn-fertig" type="button" data-a="fertig" ${O(6)}>fertig</button>`;
     vorn = `<div class="t-links">${links.replace('class="t-ring"', `class="t-ring" ${O(4)}`)}${gewichtHtml(x.ue)}</div>
       <div class="t-rechts">
-        <div class="t-zeile" ${O(1)}><b>${satzText(st)}</b>${st.kann ? ' · kann' : ''}</div>
+        <div class="t-zeile" ${O(1)}><b>${satzText(st)}</b>${st.kann ? ' · freiwillig' : ''}</div>
         <div class="t-name" ${O(2)}>${esc(x.ue.name)}</div>
         ${x.ue.hinweis ? `<div class="t-hinweis" ${O(3)}>${esc(x.ue.hinweis)}</div>` : ''}
         <div class="t-gleich" ${O(7)}>${gleichText()}</div>
-        ${x.ue.video ? `<div class="t-video-tipp" ${O(8)}>Karte antippen: Video</div>` : ''}
+        ${x.ue.video ? `<div class="t-video-tipp" ${O(8)}>Antippen: Video</div>` : ''}
       </div>`;
     const unten = w.modus === 'zeit'
       ? `<span class="t-vzahl"><span class="zahl-wert"></span>${L.halt ? '<small>angehalten</small>' : ''}</span>`
@@ -924,7 +938,7 @@ function render() {
       ${L.hatVideo ? `<button class="t-x t-laut" type="button" data-a="laut" aria-label="Videoton"></button>` : '<span class="t-platz"></span>'}
     </div>
     <div class="t-mitte">
-      <div class="t-karte ${arbeit && S.einst.karte === 'hinten' ? 'hinten' : ''}" role="group" aria-label="Übungskarte">
+      <div class="t-karte ${arbeit && L.karte === 'hinten' ? 'hinten' : ''}" role="group" aria-label="Übungskarte">
         <div class="t-seite t-vorn">${vorn}</div>
         ${arbeit ? `<div class="t-seite t-rueck${x.ue.video ? ' mit-video' : ''}">${hinten}</div>` : ''}
       </div>
@@ -1001,8 +1015,8 @@ function kartenTipp() {
   const st = cur();
   if (st.typ === 'arbeit') {
     if (L.gewOffen) { L.gewOffen = false; render(); return; }
-    S.einst.karte = S.einst.karte === 'hinten' ? 'vorn' : 'hinten'; speichern();
-    $('#training .t-karte')?.classList.toggle('hinten', S.einst.karte === 'hinten');
+    L.karte = L.karte === 'hinten' ? 'vorn' : 'hinten';
+    $('#training .t-karte')?.classList.toggle('hinten', L.karte === 'hinten');
     videoSync();
   } else if (!L.halt && !L.warte) anhalten(true);   // Easy Stop: ein Tipp in der Pause hält an
 }
@@ -1112,9 +1126,9 @@ function verbinden() {
 }
 function neuerPlan() {
   const p = { id: uid(), name: 'Neuer Plan', bloecke: [
-    { id: uid(), name: 'Warm-up', w: { ...W_WARMUP }, items: [] },
-    { id: uid(), name: 'Hauptteil A', w: { ...W_HAUPT }, items: [] },
-    { id: uid(), name: 'Hauptteil B', w: { ...W_HAUPT }, items: [] },
+    { id: uid(), name: 'Warm-up', items: [] },
+    { id: uid(), name: 'Hauptteil A', items: [] },
+    { id: uid(), name: 'Hauptteil B', items: [] },
   ] };
   S.plaene.push(p); aktPlanId = p.id; speichern();
   zeige('plan'); planNameSheet(true);

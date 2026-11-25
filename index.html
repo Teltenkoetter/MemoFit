@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <title>MemoFit</title>
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
@@ -29,7 +29,6 @@
     <section id="view-start" class="view">
       <div class="seiten-kopf">
         <h2 class="seiten-titel">Training</h2>
-        <p class="seiten-sub">Ein Tipp startet. Kann, nicht muss.</p>
       </div>
       <div id="start-liste" class="plan-karten"></div>
     </section>
@@ -192,7 +191,6 @@
         <aside class="haltung">
           <h4>Abspielen, nicht bedienen</h4>
           <p>MemoFit begleitet dein Training Übung für Übung, mit Zeit, Wiederholungen und Pausen. Einmal einrichten, danach nur noch starten. Keine Punkte, keine Serien, kein Soll.</p>
-          <p><em>Kann, nicht muss.</em></p>
         </aside>
         <div class="modal-section">
           <div class="modal-section-title"><span class="hz-i klein" data-i="installieren"></span>Erste Schritte</div>
@@ -212,12 +210,12 @@
             <div class="hz"><span class="hz-i" data-i="fertig" data-ton="akt"></span><div class="hz-t"><strong>Wiederholungen</strong> — „12–15 ×“ · großer Knopf „fertig“, wenn du so weit bist</div></div>
             <div class="hz"><span class="hz-i" data-i="pause" data-ton="reg"></span><div class="hz-t"><strong>Pause</strong> — kühl · zeigt, was gleich kommt · danach 3-2-1 und weiter</div></div>
             <div class="hz"><span class="hz-i" data-i="tippen" data-ton="reg"></span><div class="hz-t"><strong>Tipp in der Pause</strong> — hält an · „+15 s“ verlängert · „weiter“ startet sofort</div></div>
-            <div class="hz"><span class="hz-i" data-i="kann" data-ton="neutral"></span><div class="hz-t"><strong>Letzter Satz kann</strong> — bei „2–3 Sätze“ fragt die Pause leise „Noch einer?“ · „auslassen“ geht zur nächsten Übung · ohne Tipp geht es mit dem Satz weiter</div></div>
+            <div class="hz"><span class="hz-i" data-i="kann" data-ton="neutral"></span><div class="hz-t"><strong>Letzter Satz freiwillig</strong> — bei „2–3 Sätze“ fragt die Pause „Noch einer?“ · „auslassen“ geht zur nächsten Übung · ohne Tipp geht es mit dem Satz weiter</div></div>
             <div class="hz"><span class="hz-i" data-i="seiten" data-ton="neutral"></span><div class="hz-t"><strong>Seiten re/li</strong> — erst rechts, kurz „Seite wechseln“, dann links</div></div>
-            <div class="hz"><span class="hz-i" data-i="umdrehen"></span><div class="hz-t"><strong>Karte antippen</strong> — dreht sie um · hinten läuft das Video, ohne Video steht dort der Hinweis groß · die Seite bleibt für die nächsten Übungen</div></div>
+            <div class="hz"><span class="hz-i" data-i="umdrehen"></span><div class="hz-t"><strong>Karte antippen</strong> — dreht sie um · hinten läuft das Video, ohne Video steht dort der Hinweis groß · jedes Training beginnt mit der Textseite, die gewählte Seite bleibt bis zum Ende</div></div>
             <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Video</strong> — Karte antippen → Video im Loop, mit Zeit oder „fertig“ unten · die Pause zeigt nur Name und Hinweis</div></div>
-            <div class="hz"><span class="hz-i" data-i="ton"></span><div class="hz-t"><strong>Lautsprecher oben rechts</strong> — Videoton an oder aus, gilt bis zum Ende des Trainings · läuft Musik, wird sie bei Ton und 3-2-1 kurz leiser</div>
-            <div class="hz"><span class="hz-i" data-i="gewicht"></span><div class="hz-t"><strong>Gewicht</strong> — „17,5 kg“ antippen → + und − · bleibt für das nächste Mal gespeichert</div></div>
+            <div class="hz"><span class="hz-i" data-i="ton"></span><div class="hz-t"><strong>Lautsprecher oben rechts</strong> — Videoton umschalten: einmal (mit „1“) · stumm · immer · gilt auch für die nächsten Trainings · läuft Musik, wird sie bei 3-2-1 kurz leiser</div></div>
+            <div class="hz"><span class="hz-i" data-i="gewicht"></span><div class="hz-t"><strong>Gewicht</strong> — „17,5 kg“ antippen → + und − · ändert um den Wert aus der Übung · bleibt für das nächste Mal gespeichert</div></div>
             <div class="hz"><span class="hz-i" data-i="wischen"></span><div class="hz-t"><strong>Wischen</strong> — nach links: nächste Übung · nach rechts: zurück · oder ‹ › unten</div></div>
             <div class="hz"><span class="hz-i" data-i="halt"></span><div class="hz-t"><strong>Anhalten</strong> — ❙❙ unten · ✕ oben beendet das Training</div></div>
             <div class="hz"><span class="hz-i" data-i="drehen"></span><div class="hz-t"><strong>Quer oder hoch</strong> — Handy auf die Bank stellen oder auf den Boden legen · der Bildschirm bleibt an</div></div>
@@ -227,9 +225,9 @@
         <div class="modal-section">
           <div class="modal-section-title"><span class="hz-i klein" data-i="plaene"></span>Pläne</div>
           <div class="hz-liste">
-            <div class="hz"><span class="hz-i" data-i="plaene"></span><div class="hz-t"><strong>Plan</strong> — ein Trainingstag · Blöcke wie Warm-up, Hauptteil A, Hauptteil B · darin die Übungen</div></div>
-            <div class="hz"><span class="hz-i" data-i="werte"></span><div class="hz-t"><strong>Werte des Blocks</strong> — Zeit oder Wiederholungen · Sätze · Pause zwischen Sätzen · Pause vor der nächsten Übung · gelten für alle Übungen darin</div></div>
-            <div class="hz"><span class="hz-i" data-i="uebung"></span><div class="hz-t"><strong>Übung</strong> — Name · Hinweis · Seiten re/li · Gewicht · bei Bedarf eigene Werte statt der des Blocks</div></div>
+            <div class="hz"><span class="hz-i" data-i="plaene"></span><div class="hz-t"><strong>Plan</strong> — ein Trainingstag · Blöcke wie Warm-up, Hauptteil A, Hauptteil B fassen die Übungen zusammen</div></div>
+            <div class="hz"><span class="hz-i" data-i="werte"></span><div class="hz-t"><strong>Werte je Übung</strong> — Zeit oder Wiederholungen · Sätze · Pause zwischen Sätzen · Pause vor der nächsten Übung · eine neue Übung übernimmt die Werte der Übung davor</div></div>
+            <div class="hz"><span class="hz-i" data-i="uebung"></span><div class="hz-t"><strong>Übung</strong> — Name · Hinweis · Werte · Seiten re/li · Gewicht · Video</div></div>
             <div class="hz"><span class="hz-i" data-i="bibliothek"></span><div class="hz-t"><strong>Übungen</strong> — oben „Pläne · Übungen“ umschalten · alle Übungen auf einen Blick · suchen · in welchen Plänen sie stehen</div></div>
             <div class="hz"><span class="hz-i" data-i="mehrfach"></span><div class="hz-t"><strong>Dieselbe Übung in mehreren Plänen</strong> — im Plan „+ Übung“ → „Aus der Bibliothek“ wählen · Hinweis, Gewicht und Video pflegst du nur einmal · auch nach „Kopieren“</div></div>
             <div class="hz"><span class="hz-i" data-i="loeschen"></span><div class="hz-t"><strong>Aus dem Block entfernen</strong> — die Übung bleibt in der Bibliothek · ganz löschen nur unter „Übungen“</div></div>
@@ -248,7 +246,7 @@
             <div class="hz"><span class="hz-i" data-i="pause"></span><div class="hz-t"><strong>Nach der Pause</strong> — automatisch weiter · oder immer auf Tipp warten</div></div>
             <div class="hz"><span class="hz-i" data-i="start"></span><div class="hz-t"><strong>Bereit</strong> — 5 s vor der ersten Übung · aus · 10 s · 15 s</div></div>
             <div class="hz"><span class="hz-i" data-i="ton"></span><div class="hz-t"><strong>Töne</strong> — 3-2-1 vor Start und Ende · im Lautlos-Modus stumm</div></div>
-            <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Videoton</strong> — erster Durchlauf mit Ton, dann stumm · immer stumm · immer mit Ton</div></div>
+            <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Videoton</strong> — erster Durchlauf mit Ton, dann stumm · immer stumm · immer mit Ton · auch über den Lautsprecher im Training</div></div>
             <div class="hz"><span class="hz-i" data-i="speicher"></span><div class="hz-t"><strong>Speicher</strong> — „dauerhaft speichern“ schützt vor dem Aufräumen durch den Browser</div></div>
           </div>
         </div>
@@ -267,7 +265,7 @@
           <div class="hz-liste">
             <div class="hz"><span class="hz-i" data-i="ton"></span><div class="hz-t"><strong>Kein Ton?</strong> — Lautlos-Schalter am iPhone prüfen · Töne in den Einstellungen an</div></div>
             <div class="hz"><span class="hz-i" data-i="geraet"></span><div class="hz-t"><strong>Bildschirm geht aus?</strong> — ab iOS 16.4 bleibt er im Training an · sonst Auto-Sperre in den iPhone-Einstellungen verlängern</div></div>
-            <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Video ohne Ton?</strong> — Lautlos-Schalter prüfen · Karte einmal antippen, dann darf das iPhone Ton abspielen</div></div>
+            <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Video ohne Ton?</strong> — Lautsprecher oben rechts auf „einmal“ oder „immer“ · Lautstärke am iPhone prüfen · läuft Musik, kann iOS sie für den Videoton anhalten</div></div>
             <div class="hz"><span class="hz-i" data-i="loeschen"></span><div class="hz-t"><strong>Daten weg?</strong> — „Browserdaten löschen“ entfernt auch MemoFit → Sicherung laden</div></div>
             <div class="hz"><span class="hz-i" data-i="geraet"></span><div class="hz-t"><strong>Home-Bildschirm &amp; Safari</strong> — getrennte Speicher · immer die App vom Home-Bildschirm nutzen</div></div>
           </div>
@@ -282,6 +280,6 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"><span id="toast-text"></span><button id="toast-btn" type="button" class="hidden">Rückgängig</button></div>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
