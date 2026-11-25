@@ -510,3 +510,8 @@ input[type="search"] {
 .u-suche { margin-bottom: 0.2rem; }
 .marke.warm { background: rgba(var(--akt-rgb), 0.18); color: var(--akt); }
 .t-video-slot.fehlt::after { content: 'Video fehlt auf diesem Gerät · unter „Übungen“ neu wählen'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 1.5rem; color: var(--hint); font-size: 0.9rem; line-height: 1.4; }
+
+/* Lautsprecher im Training */
+.t-laut { display: flex; align-items: center; justify-content: center; color: var(--text); }
+.t-laut svg { width: 20px; height: 20px; }
+.t-laut.aus { color: var(--hint); }

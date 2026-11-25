@@ -431,6 +431,7 @@ function uebungSheet(bi, ii, bibId = null) {
   }
   function vInfo() {
     const el = $('#v-info'); if (!el || !vs) return;
+    $('#u-video [data-v="ganz"]')?.classList.toggle('an', !vs.start && vs.ende == null);
     const bis = vs.ende ?? vs.dauer;
     el.textContent = [bis != null ? `Ausschnitt ${sekText(Math.max(0, bis - (vs.start || 0)))}` : '', vs.dauer ? `Video ${zeitFmt(vs.dauer)}` : '', vs.groesse ? mbText(vs.groesse) : ''].filter(Boolean).join(' · ');
   }
@@ -625,7 +626,17 @@ function einstVerbinden() {
 
 // ── Töne (Web Audio, erst nach einem Tipp möglich) ─────
 let ac = null;
+// iOS (Safari 17+): Musik aus anderen Apps soll weiterlaufen. Ruhig: „ambient“ (mischt, Musik normal laut).
+// Bei Zählton oder hörbarem Video: „transient“ (Musik wird leiser), danach wieder „ambient“.
+let duckBis = 0;
+function audioSession(typ) { try { if (navigator.audioSession && navigator.audioSession.type !== typ) navigator.audioSession.type = typ; } catch {} }
+function audioPruefen() {
+  const videoLaut = L && L.video && !L.video.paused && !L.video.muted;
+  audioSession(videoLaut || Date.now() < duckBis ? 'transient' : 'ambient');
+}
+function leiserMachen(ms) { duckBis = Math.max(duckBis, Date.now() + ms); audioPruefen(); setTimeout(audioPruefen, ms + 60); }
 function audioAn() {
+  audioSession('ambient');
   try { ac ||= new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch {}
 }
 function piep(f, start, dauer, laut = 0.22) {
@@ -638,6 +649,7 @@ function piep(f, start, dauer, laut = 0.22) {
 }
 function ton(art) {
   if (!S.einst.toene || !ac) return;
+  leiserMachen(art === 'tick' ? 1300 : 900);
   try {
     const t = ac.currentTime + 0.01;
     if (art === 'tick') piep(660, t, 0.14);
@@ -667,7 +679,8 @@ function trainingStart(planId) {
   audioAn();
   navigator.storage?.persist?.().catch(() => {});
   L = { plan, ues, out, i: 0, t0: jetzt(), start: 0, dauerMs: 0, halt: false, haltRest: 0, warte: false, piep: -1, einschub: null, gewOffen: false, ende: false,
-    video: videoElement(), urls: {}, videoUe: null, tonGehoert: new Set() };
+    video: videoElement(), urls: {}, videoUe: null, tonGehoert: new Set(), tonWahl: null,
+    hatVideo: ues.some(x => x.ue.video) };
   clipsLaden(L);
   document.documentElement.classList.add('im-training');
   $('#training').classList.remove('hidden');
@@ -679,6 +692,7 @@ function trainingZu() {
   clearInterval(tickTimer); tickTimer = null;
   if (L) { try { L.video.pause(); L.video.removeAttribute('src'); L.video.load(); } catch {} Object.values(L.urls).forEach(u => { if (u !== 'fehlt') URL.revokeObjectURL(u); }); }
   L = null;
+  audioSession('ambient');
   wachLoslassen();
   document.documentElement.classList.remove('im-training');
   $('#training').classList.add('hidden'); $('#training').innerHTML = '';
@@ -693,6 +707,7 @@ function videoElement() {
   v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
   v.addEventListener('timeupdate', videoLoop);
   v.addEventListener('ended', videoLoop);
+  ['play', 'pause', 'volumechange'].forEach(ev => v.addEventListener(ev, () => { audioPruefen(); lautKnopf(); }));
   v.addEventListener('loadedmetadata', () => { const c = L && S.uebungen[L.videoUe]?.video; if (c?.start) v.currentTime = c.start; });
   return v;
 }
@@ -705,7 +720,24 @@ async function clipsLaden(lauf) {
     videoSync();
   }
 }
-const tonStumm = ueId => S.einst.videoTon === 'aus' || (S.einst.videoTon === 'erst' && L.tonGehoert.has(ueId));
+// Lautsprecher-Knopf im Training geht vor; sonst die Einstellung (einmal · stumm · immer)
+const tonStumm = ueId => L.tonWahl != null ? !L.tonWahl : (S.einst.videoTon === 'aus' || (S.einst.videoTon === 'erst' && L.tonGehoert.has(ueId)));
+const ICON_LAUT = svg('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4Z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>', 1.9);
+const ICON_STUMM = svg('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4Z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>', 1.9);
+function lautKnopf() {
+  const b = L && $('#training .t-laut'); if (!b) return;
+  const an = L.video.isConnected && !L.video.paused ? !L.video.muted : (L.tonWahl ?? S.einst.videoTon !== 'aus');
+  b.innerHTML = an ? ICON_LAUT : ICON_STUMM;
+  b.classList.toggle('aus', !an);
+  b.setAttribute('aria-label', an ? 'Videoton aus' : 'Videoton an');
+}
+function lautUmschalten() {
+  const an = !(L.video.isConnected && !L.video.paused ? !L.video.muted : (L.tonWahl ?? S.einst.videoTon !== 'aus'));
+  L.tonWahl = an;
+  L.video.muted = !an;
+  if (an && L.video.isConnected) videoSpielen();   // der Tipp gibt iOS die Freigabe für Ton
+  audioPruefen(); lautKnopf();
+}
 function videoSpielen() {
   const v = L.video;
   v.play()?.catch(() => { if (!v.muted) { v.muted = true; v.play()?.catch(() => {}); } });   // ohne Freigabe: stumm weiter
@@ -736,6 +768,7 @@ function videoSync() {
   const sichtbar = st.typ !== 'arbeit' || (S.einst.karte === 'hinten' && !L.halt);
   v.muted = tonStumm(ue.id);
   if (sichtbar) videoSpielen(); else v.pause();
+  lautKnopf();
 }
 
 const cur = () => L.einschub || L.out[L.i];
@@ -779,6 +812,7 @@ function tick() {
     phaseFertig(endZeit);
   }
   ringAktualisieren();
+  audioPruefen();
 }
 function ringAktualisieren() {
   if (!L || L.ende) return;
@@ -877,9 +911,7 @@ function render() {
     const vor = ziel ? `<div class="t-vorschau" ${O(8)}>
         <div class="t-gleich">Gleich · ${satzText(ziel)}${x.ue.kg != null ? ' · ' + esc(kgText(x.ue)) : ''}</div>
         <div class="t-name">${esc(x.ue.name)}</div>
-        ${x.ue.video && S.einst.karte === 'hinten'
-          ? `<div class="t-video-slot vorschau" data-ue="${x.ue.id}"></div>`
-          : (x.ue.hinweis ? `<div class="t-hinweis">${esc(x.ue.hinweis)}</div>` : '')}
+        ${x.ue.hinweis ? `<div class="t-hinweis">${esc(x.ue.hinweis)}</div>` : ''}
       </div>` : '';
     vorn = `<div class="t-links">${ringHtml(L.warte ? 'bereit?' : '').replace('class="t-ring"', `class="t-ring" ${O(4)}`)}</div>
       <div class="t-rechts"><div class="t-zeile" ${O(1)}><b>${titel}</b></div>${vor}${unten}</div>`;
@@ -889,7 +921,7 @@ function render() {
     <div class="t-oben">
       <button class="t-x" type="button" data-a="abbrechen" aria-label="Training beenden">✕</button>
       <div class="t-ort">${ort}</div>
-      <span class="t-platz"></span>
+      ${L.hatVideo ? `<button class="t-x t-laut" type="button" data-a="laut" aria-label="Videoton"></button>` : '<span class="t-platz"></span>'}
     </div>
     <div class="t-mitte">
       <div class="t-karte ${arbeit && S.einst.karte === 'hinten' ? 'hinten' : ''}" role="group" aria-label="Übungskarte">
@@ -953,6 +985,7 @@ function aktion(a) {
       geheZu(k); break;
     }
     case 'weiter': springe(1); break;
+    case 'laut': lautUmschalten(); break;
     case 'zurueck': springe(-1); break;
     case 'kg': L.gewOffen = true; render(); gewZu(); break;
     case 'kg+': case 'kg-': {
@@ -991,7 +1024,7 @@ function trainingVerbinden() {
 }
 
 // ── Sheet, Toast, Navigation ────────────────────────────
-function sheet(titel, html) { $('#sheet-titel').textContent = titel; $('#sheet-body').innerHTML = html; $('#sheet').classList.remove('hidden'); fensterOffen(); }
+function sheet(titel, html) { $('#sheet-titel').textContent = titel; $('#sheet-body').innerHTML = html; $('#sheet').classList.remove('hidden'); $('#sheet .modal').scrollTop = 0; fensterOffen(); }
 function sheetZu() { $('#sheet').classList.add('hidden'); fensterOffen(); }
 function fensterOffen() {
   const offen = !$('#sheet').classList.contains('hidden') || !$('#hilfe').classList.contains('hidden');
