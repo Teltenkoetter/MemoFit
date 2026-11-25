@@ -109,7 +109,7 @@ function speichern() {
 // ── Zustand ─────────────────────────────────────────────
 const W_WARMUP = { modus: 'zeit', zeit: 30, wdh: 12, wdhBis: null, saetze: 3, kann: true, pSatz: 15, pUebung: 30 };
 const W_HAUPT  = { modus: 'wdh', zeit: 40, wdh: 12, wdhBis: 15, saetze: 4, kann: true, pSatz: 60, pUebung: 90 };
-const EINST = { auto: true, vorlauf: 5, wechsel: 5, toene: true, karte: 'vorn', videoTon: 'erst', musik: 'vorrang' };
+const EINST = { auto: true, vorlauf: 5, wechsel: 5, toene: true, karte: 'vorn', videoTon: 'immer', musik: 'vorrang' };
 
 function leer() { return { version: 1, plaene: [], uebungen: {}, einst: { ...EINST }, verlauf: [] }; }
 let S = leer();
@@ -651,16 +651,58 @@ function piep(f, start, dauer, laut = 0.22) {
   g.gain.exponentialRampToValueAtTime(laut, start + 0.015);
   g.gain.exponentialRampToValueAtTime(0.0001, start + dauer);
   o.connect(g).connect(ac.destination); o.start(start); o.stop(start + dauer + 0.05);
+  return o;
 }
-function ton(art) {
-  if (!S.einst.toene || !ac) return;
+function ton(art, wann = null) {
+  const os = [];
+  if (!S.einst.toene || !ac) return os;
   try {
-    const t = ac.currentTime + 0.01;
-    if (art === 'tick') piep(660, t, 0.14);
-    else if (art === 'los') piep(990, t, 0.45, 0.26);
-    else if (art === 'ende') { piep(520, t, 0.2); piep(520, t + 0.26, 0.32); }
-    else if (art === 'leise') piep(740, t, 0.08, 0.1);
+    const t = wann ?? ac.currentTime + 0.01;
+    if (art === 'tick') os.push(piep(660, t, 0.14));
+    else if (art === 'los') os.push(piep(990, t, 0.45, 0.26));
+    else if (art === 'ende') os.push(piep(520, t, 0.2), piep(520, t + 0.26, 0.32));
+    else if (art === 'leise') os.push(piep(740, t, 0.08, 0.1));
   } catch {}
+  return os;
+}
+
+// 3-2-1 und Schlusston vorausplanen: auf die Uhr des Audiosystems gelegt, kurz vorher die Ausgabe wecken.
+// So kommen die Töne pünktlich und nicht verspätet in die nächste Phase hinein.
+let endeGeplant = 0;
+function tonAbbrechen() {
+  if (!L?.geplant) return;
+  const jetztAc = ac ? ac.currentTime : 0;
+  L.geplant.nodes.forEach(([o, t]) => { if (t > jetztAc) { try { o.stop(); } catch {} } });
+  L.geplant = null;
+}
+function tonPlanen() {
+  if (!L || L.ende) return;
+  const aktiv = !L.halt && !L.warte && Number.isFinite(L.dauerMs) && !!ac && S.einst.toene;
+  const key = aktiv ? `${L.i}|${L.einschub ? 1 : 0}|${L.start}|${L.dauerMs}` : null;
+  if (L.geplant && L.geplant.key !== key) tonAbbrechen();
+  if (!aktiv || L.geplant) return;
+  const endZeit = L.start + L.dauerMs;
+  if (endZeit - jetzt() > 4500) return;
+  if (ac.state === 'suspended') ac.resume().catch(() => {});
+  const lat = ac.outputLatency || ac.baseLatency || 0;
+  const acZeit = ms => ac.currentTime + Math.max(0.005, (ms - jetzt()) / 1000 - lat);
+  const nodes = [];
+  try {   // fast unhörbarer Ton hält die Ausgabe wach, damit der erste Piep nicht hängt
+    const o = ac.createOscillator(), g = ac.createGain();
+    g.gain.value = 0.0001; o.connect(g).connect(ac.destination);
+    o.start(); o.stop(acZeit(endZeit + 800)); nodes.push([o, Infinity]);
+  } catch {}
+  for (const s of [3, 2, 1]) {
+    const z = endZeit - s * 1000;
+    if (z > jetzt() - 80) { const t = acZeit(z); ton('tick', t).forEach(o => nodes.push([o, t])); }
+  }
+  const st = cur(), naechste = L.out[L.i + 1];
+  const endArt = st.typ === 'arbeit' ? 'ende'
+    : L.einschub ? 'los'
+    : !S.einst.auto ? 'leise'
+    : naechste?.typ === 'arbeit' ? 'los' : null;
+  if (endArt) { const t = acZeit(endZeit); ton(endArt, t).forEach(o => nodes.push([o, t])); endeGeplant = endZeit; }
+  L.geplant = { key, nodes };
 }
 
 // ── Bildschirm anlassen (Wake Lock) ─────────────────────
@@ -694,7 +736,7 @@ function trainingStart(planId) {
 }
 function trainingZu() {
   clearInterval(tickTimer); tickTimer = null;
-  if (L) { try { L.video.pause(); L.video.removeAttribute('src'); L.video.load(); } catch {} Object.values(L.urls).forEach(u => { if (u !== 'fehlt') URL.revokeObjectURL(u); }); }
+  if (L) { tonAbbrechen(); try { L.video.pause(); L.video.removeAttribute('src'); L.video.load(); } catch {} Object.values(L.urls).forEach(u => { if (u !== 'fehlt') URL.revokeObjectURL(u); }); }
   L = null;
   audioPruefen();
   wachLoslassen();
@@ -805,12 +847,12 @@ function geheZu(k, startZeit = jetzt(), einschub = false) {
   L.start = startZeit;
   L.dauerMs = phaseDauerMs(cur());
   if (L.dauerMs <= 0) { geheZu(k + 1, startZeit); return; }
-  if (cur().typ === 'arbeit' && jetzt() - startZeit < 1500) ton('los');
+  if (cur().typ === 'arbeit' && jetzt() - startZeit < 1500 && endeGeplant !== startZeit) ton('los');
   render();
 }
 function phaseFertig(endZeit) {
   const st = cur();
-  if (L.einschub) { L.einschub = null; L.start = endZeit; L.dauerMs = phaseDauerMs(cur()); L.piep = -1; if (jetzt() - endZeit < 1500) ton('los'); render(); return; }
+  if (L.einschub) { L.einschub = null; L.start = endZeit; L.dauerMs = phaseDauerMs(cur()); L.piep = -1; if (jetzt() - endZeit < 1500 && endeGeplant !== endZeit) ton('los'); render(); return; }
   geheZu(L.i + 1, endZeit);
 }
 function tick() {
@@ -820,15 +862,16 @@ function tick() {
     const rest = restMs();
     if (rest > 0) {
       const s = Math.ceil(rest / 1000);
-      if (s <= 3 && s !== L.piep) { L.piep = s; ton('tick'); }
       break;
     }
     const endZeit = L.start + L.dauerMs, frisch = jetzt() - endZeit < 1500;
     const st = cur();
-    if (st.typ === 'arbeit') { if (frisch) ton('ende'); phaseFertig(endZeit); continue; }
-    if (!S.einst.auto && !st.einschub) { L.warte = true; L.haltRest = 0; if (frisch) ton('leise'); render(); break; }
+    const geplant = endeGeplant === endZeit;
+    if (st.typ === 'arbeit') { if (frisch && !geplant) ton('ende'); phaseFertig(endZeit); continue; }
+    if (!S.einst.auto && !st.einschub) { L.warte = true; L.haltRest = 0; if (frisch && !geplant) ton('leise'); render(); break; }
     phaseFertig(endZeit);
   }
+  tonPlanen();
   ringAktualisieren();
   audioPruefen();
 }
@@ -923,7 +966,7 @@ function render() {
     const titel = st.typ === 'bereit' ? 'Bereit' : st.typ === 'wechsel' ? 'Seite wechseln' : 'Pause';
     let unten = '';
     if (L.warte) unten = `<div class="t-stopp" ${O(10)}><button type="button" data-a="plus15">+15 s</button><button type="button" class="haupt" data-a="los">weiter</button></div>`;
-    else if (L.halt) unten = `<div class="t-stopp-text" ${O(9)}>angehalten</div><div class="t-stopp" ${O(10)}><button type="button" data-a="plus15">+15 s</button><button type="button" class="haupt" data-a="los">weiter</button></div>`
+    else if (L.halt) unten = `<div class="t-stopp-text" ${O(9)}>angehalten</div><div class="t-stopp" ${O(10)}><button type="button" data-a="plus15">+15 s</button><button type="button" class="haupt" data-a="fortsetzen">weiter</button></div>`
       + (st.kannNaechster ? `<button class="btn-auslassen" type="button" data-a="auslassen" ${O(11)}>Satz auslassen, zur nächsten Übung</button>` : '');
     else if (st.kannNaechster) unten = `<div class="t-kann" ${O(9)}><p>Noch einer?</p><button class="btn-auslassen" type="button" data-a="auslassen">auslassen, zur nächsten Übung</button></div>`;
     const vor = ziel ? `<div class="t-vorschau" ${O(8)}>
@@ -953,6 +996,8 @@ function render() {
       <button class="t-knopf" type="button" data-a="weiter" aria-label="Nächste Übung">${ICON.vor}</button>
     </div>`;
   videoSync();
+  lautKnopf();
+  tonPlanen();
   ringAktualisieren();
 }
 
@@ -992,9 +1037,10 @@ function aktion(a) {
     case 'halt': if (L.warte) aktion('los'); else anhalten(!L.halt); break;
     case 'fertig': ton('leise'); geheZu(L.i + 1); break;
     case 'los': phaseFertig(jetzt()); break;
+    case 'fortsetzen': anhalten(false); break;
     case 'plus15':
       if (L.warte) { L.warte = false; L.start = jetzt(); L.dauerMs = 15000; L.piep = -1; }
-      else if (L.halt) { L.dauerMs += 15000; L.haltRest += 15000; anhalten(false); return; }
+      else if (L.halt) { L.dauerMs += 15000; L.haltRest += 15000; }
       else L.dauerMs += 15000;
       render(); break;
     case 'auslassen': {
