@@ -633,16 +633,10 @@ function einstVerbinden() {
 
 // ── Töne (Web Audio, erst nach einem Tipp möglich) ─────
 let ac = null;
-// iOS (Safari 17+): Musik aus anderen Apps soll weiterlaufen. Ruhig: „ambient“ (mischt, Musik normal laut).
-// Bei Zählton: „transient“ (Musik wird kurz leiser). Hörbares Video: „auto“, also die normale Wiedergabe von Safari,
-// denn „ambient“ und „transient“ folgen dem Lautlos-Schalter und lassen das Video sonst stumm.
-let duckBis = 0;
+// iOS (Safari 17+): „ambient“ mischt. Musik aus anderen Apps läuft in voller Lautstärke weiter,
+// 3-2-1 und Videoton liegen darüber. Preis: Im Lautlos-Modus bleibt MemoFit stumm.
 function audioSession(typ) { try { if (navigator.audioSession && navigator.audioSession.type !== typ) navigator.audioSession.type = typ; } catch {} }
-function audioPruefen() {
-  const videoLaut = L && L.video && !L.video.paused && !L.video.muted;
-  audioSession(videoLaut ? 'auto' : Date.now() < duckBis ? 'transient' : 'ambient');
-}
-function leiserMachen(ms) { duckBis = Math.max(duckBis, Date.now() + ms); audioPruefen(); setTimeout(audioPruefen, ms + 60); }
+function audioPruefen() { audioSession('ambient'); }
 function audioAn() {
   audioSession('ambient');
   try { ac ||= new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch {}
@@ -657,7 +651,6 @@ function piep(f, start, dauer, laut = 0.22) {
 }
 function ton(art) {
   if (!S.einst.toene || !ac) return;
-  leiserMachen(art === 'tick' ? 1300 : 900);
   try {
     const t = ac.currentTime + 0.01;
     if (art === 'tick') piep(660, t, 0.14);
@@ -711,7 +704,7 @@ function trainingZu() {
 // Ein einziges <video> wandert zwischen Kartenrückseite und Pausen-Vorschau. So bleibt es nach dem Start-Tipp „freigeschaltet“.
 function videoElement() {
   const v = document.createElement('video');
-  v.className = 't-video'; v.playsInline = true; v.muted = true; v.preload = 'auto';
+  v.className = 't-video'; v.playsInline = true; v.muted = true; v.preload = 'auto'; v.loop = true;
   v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', '');
   v.addEventListener('timeupdate', videoLoop);
   v.addEventListener('ended', videoLoop);
@@ -731,17 +724,21 @@ async function clipsLaden(lauf) {
 // Videoton: einmal (erster Durchlauf je Übung) · stumm · immer. Der Lautsprecher im Training schaltet weiter.
 const tonStumm = ueId => S.einst.videoTon === 'aus' || (S.einst.videoTon === 'erst' && L.tonGehoert.has(ueId));
 const TON_NAME = { erst: 'einmal', aus: 'stumm', immer: 'immer' };
-const ICON_LAUT = svg('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4Z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>', 1.9);
-const ICON_STUMM = svg('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4Z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>', 1.9);
+const LAUTSPR = '<path d="M2.5 9.5h3L10 5.5v13l-4.5-4h-3Z"/>';
+const TON_ICON = {
+  erst: svg(LAUTSPR + '<path d="M16 8.2l2-1.4v10.4"/>', 1.9),
+  immer: svg(LAUTSPR + '<path d="M13 12c0-1.3.9-2.2 2-2.2 2 0 3 4.4 5 4.4 1.1 0 2-.9 2-2.2s-.9-2.2-2-2.2c-2 0-3 4.4-5 4.4-1.1 0-2-.9-2-2.2Z"/>', 1.9),
+  aus: svg(LAUTSPR + '<path d="M14.5 9.5l5 5M19.5 9.5l-5 5"/>', 1.9),
+};
 function lautKnopf() {
   const b = L && $('#training .t-laut'); if (!b) return;
   const m = S.einst.videoTon;
-  b.innerHTML = (m === 'aus' ? ICON_STUMM : ICON_LAUT) + (m === 'erst' ? '<span class="t-laut-1">1</span>' : '');
-  b.classList.toggle('aus', m === 'aus');
+  b.innerHTML = TON_ICON[m] || TON_ICON.erst;
+  b.dataset.ton = m;
   b.setAttribute('aria-label', `Videoton: ${TON_NAME[m]}`);
 }
 function lautUmschalten() {
-  const folge = { erst: 'aus', aus: 'immer', immer: 'erst' };
+  const folge = { erst: 'immer', immer: 'aus', aus: 'erst' };
   S.einst.videoTon = folge[S.einst.videoTon] || 'erst'; speichern();
   if (S.einst.videoTon === 'erst' && L.videoUe) L.tonGehoert.delete(L.videoUe);   // „einmal“: das laufende Video noch einmal mit Ton
   const v = L.video;
@@ -760,13 +757,17 @@ function videoSpielen() {
 function videoLoop() {
   if (!L || !L.videoUe) return;
   const v = L.video, c = S.uebungen[L.videoUe]?.video; if (!c) return;
-  const start = c.start || 0;
-  if (v.ended || (c.ende != null && v.currentTime >= c.ende - 0.05)) {
-    v.currentTime = start;
+  const start = c.start || 0, t = v.currentTime, vorher = L.vZeit ?? t;
+  L.vZeit = t;
+  const amEnde = v.ended || (c.ende != null && t >= c.ende - 0.05);
+  const herum = t < vorher - 0.5;   // das Video ist von selbst wieder vorn (loop)
+  if (amEnde || herum) {
+    const lief = !v.paused || v.ended;
     L.tonGehoert.add(L.videoUe);
     v.muted = tonStumm(L.videoUe);
-    if (!v.paused || v.ended) videoSpielen();
-  } else if (v.currentTime < start - 0.3) v.currentTime = start;
+    if (amEnde || t < start - 0.3) { v.currentTime = start; L.vZeit = start; }
+    if (lief && v.paused) videoSpielen();
+  } else if (t < start - 0.3) { v.currentTime = start; L.vZeit = start; }
 }
 function videoSync() {
   if (!L || !L.video) return;
@@ -776,7 +777,7 @@ function videoSync() {
   slot.classList.toggle('laedt', !url);
   slot.classList.toggle('fehlt', url === 'fehlt');
   if (!url || url === 'fehlt') { v.pause(); v.remove(); return; }
-  if (L.videoUe !== ue.id) { L.videoUe = ue.id; v.src = url; }
+  if (L.videoUe !== ue.id) { L.videoUe = ue.id; L.vZeit = null; v.src = url; }
   if (v.parentNode !== slot) slot.appendChild(v);
   const st = cur();
   const sichtbar = st.typ === 'arbeit' && L.karte === 'hinten' && !L.halt;

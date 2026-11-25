@@ -512,8 +512,9 @@ input[type="search"] {
 .t-video-slot.fehlt::after { content: 'Video fehlt auf diesem Gerät · unter „Übungen“ neu wählen'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 1.5rem; color: var(--hint); font-size: 0.9rem; line-height: 1.4; }
 
 /* Lautsprecher im Training (einmal · stumm · immer) */
-.t-laut { display: flex; align-items: center; justify-content: center; color: var(--text); }
-.t-laut svg { width: 20px; height: 20px; }
-.t-laut.aus { color: var(--hint); }
-.t-laut { position: relative; }
-.t-laut-1 { position: absolute; right: 4px; bottom: 3px; font-size: 0.62rem; font-weight: 800; line-height: 1; color: var(--text); }
+.t-laut { display: flex; align-items: center; justify-content: center; }
+.t-laut svg { width: 22px; height: 22px; }
+/* Grauwerte: immer hell · einmal mittel · stumm gedämpft */
+.t-laut[data-ton="immer"] { color: var(--text); }
+.t-laut[data-ton="erst"] { color: var(--text-dim); }
+.t-laut[data-ton="aus"] { color: var(--hint); opacity: 0.7; }
