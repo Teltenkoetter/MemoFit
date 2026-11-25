@@ -975,7 +975,7 @@ function render() {
   const ziel = kNext >= 0 ? L.out[kNext] : null;
   const x = L.ues[(ziel || st).ui];
   const ort = `<b>${esc(x.b.name)}</b> · Übung ${(ziel || st).ui + 1} von ${L.ues.length}`;
-  const zeigVideo = !arbeit && st.uebungsPause && st.dauer >= 30 && ziel && x.ue.video && L.urls[x.ue.video.id] && L.urls[x.ue.video.id] !== 'fehlt';
+  const zeigVideo = !arbeit && st.uebungsPause && L.vorschauAus !== L.i && !L.halt && st.dauer >= 30 && ziel && x.ue.video && L.urls[x.ue.video.id] && L.urls[x.ue.video.id] !== 'fehlt';
   if (!zeigVideo) L.vorschauGross = false;
 
   let vorn = '', hinten = '';
@@ -1077,7 +1077,7 @@ function aktion(a) {
       bestaetigen('Training beenden?', 'Der Plan bleibt, wie er ist.', 'Beenden', () => trainingZu(), 'Weiter trainieren', sheetWeiter);
       break;
     }
-    case 'halt': if (L.vorschauGross) vorschauEnde(); else if (L.warte) aktion('los'); else anhalten(!L.halt); break;
+    case 'halt': if (L.vorschauGross) vorschauEnde(); else if (L.warte) aktion('los'); else { if (!L.halt) L.vorschauAus = L.i; anhalten(!L.halt); } break;
     case 'fertig': ton('leise'); geheZu(L.i + 1); break;
     case 'los': phaseFertig(jetzt()); break;
     case 'fortsetzen': anhalten(false); break;
@@ -1155,7 +1155,7 @@ function kartenTipp(e) {
     videoSync();
   } else if (L.vorschauGross) vorschauEnde();
   else if (e?.target?.closest('.t-video-slot.vorschau')) vorschauStart();
-  else if (!L.halt && !L.warte) anhalten(true);   // Easy Stop: ein Tipp in der Pause hält an
+  else if (!L.halt && !L.warte) { L.vorschauAus = L.i; anhalten(true); }   // Easy Stop: ein Tipp in der Pause hält an und räumt die Vorschau weg
 }
 function trainingVerbinden() {
   const t = $('#training');

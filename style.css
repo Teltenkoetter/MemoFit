@@ -417,7 +417,7 @@ html.im-training, html.im-training body { overflow: hidden; }
   border-radius: 999px; padding: 0.55rem 1.1rem; font-size: 0.9rem; font-weight: 600; cursor: pointer; min-height: 44px;
 }
 
-.t-unten { display: flex; align-items: center; justify-content: center; gap: 1.6rem; min-height: 76px; }
+.t-unten { display: flex; align-items: center; justify-content: center; gap: 1.6rem; min-height: 76px; margin-top: 0.8rem; }
 .t-knopf {
   width: 60px; height: 60px; border-radius: 50%; cursor: pointer; flex: 0 0 auto;
   background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text-dim);
@@ -451,7 +451,8 @@ html.im-training, html.im-training body { overflow: hidden; }
   .t-name { font-size: clamp(1.8rem, 6vh + 1vw, 2.8rem); }
   .t-vorschau { align-items: flex-start; border-top: 0; padding-top: 0; }
   .t-unten { position: absolute; right: max(1rem, env(safe-area-inset-right)); top: 50%; transform: translateY(-50%); flex-direction: column; gap: 0.9rem; min-height: 0; }
-  .t-mitte { padding-right: 84px; }
+  .t-mitte { padding-right: 100px; }
+  .t-unten { margin-top: 0; }
   .btn-fertig { min-height: 72px; }
 }
 /* Hochformat: einfache Spalte */
