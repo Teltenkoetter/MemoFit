@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <title>MemoFit</title>
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
 
@@ -126,6 +126,15 @@
       </div>
 
       <div class="card">
+        <div class="card-header"><h2>Abschluss</h2></div>
+        <div class="seg" id="e-abschluss" role="group" aria-label="Abschluss">
+          <button type="button" data-wert="still">still</button>
+          <button type="button" data-wert="fest">Licht und Klang</button>
+        </div>
+        <p class="form-hinweis">Licht und Klang: Am Ende schließt sich ein Ring, ein paar Funken steigen auf, dazu ein weicher Akkord. Der Klang folgt der Einstellung „Töne“.</p>
+      </div>
+
+      <div class="card">
         <div class="card-header"><h2>Videoton</h2></div>
         <div class="seg" id="e-videoton" role="group" aria-label="Videoton">
           <button type="button" data-wert="aus">stumm</button>
@@ -222,7 +231,7 @@
             <div class="hz"><span class="hz-i" data-i="kann" data-ton="neutral"></span><div class="hz-t"><strong>Letzter Satz freiwillig</strong> — bei „2–3 Sätze“ fragt die Pause „Noch einer?“ · „auslassen“ geht zur nächsten Übung · ohne Tipp geht es mit dem Satz weiter</div></div>
             <div class="hz"><span class="hz-i" data-i="seiten" data-ton="neutral"></span><div class="hz-t"><strong>Seiten re/li</strong> — erst rechts, kurz „Seite wechseln“, dann links</div></div>
             <div class="hz"><span class="hz-i" data-i="umdrehen"></span><div class="hz-t"><strong>Karte antippen</strong> — dreht sie um · hinten läuft das Video, ohne Video steht dort der Hinweis groß · jedes Training beginnt mit der Textseite, die gewählte Seite bleibt bis zum Ende</div></div>
-            <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Video</strong> — Karte antippen → Video im Loop, mit Zeit oder „fertig“ unten · die Pause zeigt nur Name und Hinweis</div></div>
+            <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Video</strong> — Karte antippen → Video im Loop, mit Zeit oder „fertig“ unten · mehrere Videos laufen nacheinander · die Pause zeigt nur Name und Hinweis</div></div>
             <div class="hz"><span class="hz-i" data-i="ton"></span><div class="hz-t"><strong>Lautsprecher oben rechts</strong> — Videoton umschalten: stumm (✕) · einmal (1) · immer (∞) · gilt auch für die nächsten Trainings</div></div>
             <div class="hz"><span class="hz-i" data-i="gewicht"></span><div class="hz-t"><strong>Gewicht</strong> — „17,5 kg“ antippen → + und − · ändert um den Wert aus der Übung · bleibt für das nächste Mal gespeichert</div></div>
             <div class="hz"><span class="hz-i" data-i="plaene"></span><div class="hz-t"><strong>Ablauf</strong> — oben in der Mitte antippen · Blöcke und Übungen auf einen Blick · eine Übung antippen: dort weitermachen · auch auf der Startseite unter dem Plan</div></div>
@@ -244,7 +253,8 @@
             <div class="hz"><span class="hz-i" data-i="loeschen"></span><div class="hz-t"><strong>Aus dem Block entfernen</strong> — die Übung bleibt in der Bibliothek · ganz löschen nur unter „Übungen“</div></div>
             <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>„Video neu wählen“</strong> — nach dem Laden einer Sicherung auf einem anderen Gerät · Übung öffnen → „Video wählen“ · Ausschnitt bleibt erhalten, wenn du ihn nicht änderst</div></div>
             <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Video zuordnen</strong> — Übung öffnen → „Video wählen“ → aus Fotos oder iCloud Drive · bleibt nur auf diesem Gerät</div></div>
-            <div class="hz"><span class="hz-i" data-i="schnitt"></span><div class="hz-t"><strong>Ausschnitt</strong> — Video abspielen · bei der Stelle „hier“ unter Start bzw. Ende · „Ausschnitt abspielen“ zum Prüfen · gilt in allen Plänen</div></div>
+            <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Mehrere Videos</strong> — z. B. von vorn und von der Seite · „+ weiteres Video“ · jedes mit eigenem Ausschnitt · „nach vorn“ ändert die Reihenfolge · im Training nacheinander im Loop</div></div>
+            <div class="hz"><span class="hz-i" data-i="schnitt"></span><div class="hz-t"><strong>Ausschnitt</strong> — Video abspielen · bei der Stelle „hier“ unter Start bzw. Ende · „Ausschnitt abspielen“ zum Prüfen · gilt in allen Plänen · bei mehreren Videos die Zeile antippen, um es zu öffnen</div></div>
             <div class="hz"><span class="hz-i" data-i="speicher"></span><div class="hz-t"><strong>Größe</strong> — 30 s in 1080p sind etwa 30–60 MB · in 1080p filmen oder in Fotos kürzen · 4K braucht viel mehr Platz</div></div>
             <div class="hz"><span class="hz-i" data-i="sortieren"></span><div class="hz-t"><strong>Reihenfolge</strong> — ↑ ↓ verschieben Blöcke und Übungen</div></div>
             <div class="hz"><span class="hz-i" data-i="loeschen"></span><div class="hz-t"><strong>Löschen</strong> — „Rückgängig“ im Hinweis unten holt es zurück</div></div>
@@ -257,6 +267,7 @@
             <div class="hz"><span class="hz-i" data-i="pause"></span><div class="hz-t"><strong>Nach der Pause</strong> — automatisch weiter · oder immer auf Tipp warten</div></div>
             <div class="hz"><span class="hz-i" data-i="start"></span><div class="hz-t"><strong>Bereit</strong> — 5 s vor der ersten Übung · aus · 10 s · 15 s</div></div>
             <div class="hz"><span class="hz-i" data-i="ton"></span><div class="hz-t"><strong>Töne</strong> — 3-2-1 vor Start und Ende · im Lautlos-Modus stumm</div></div>
+            <div class="hz"><span class="hz-i" data-i="ton"></span><div class="hz-t"><strong>Abschluss</strong> — still · oder Licht und Klang: Ring, Funken, weicher Akkord · beim Antippen gleich zu hören</div></div>
             <div class="hz"><span class="hz-i" data-i="video"></span><div class="hz-t"><strong>Videoton</strong> — immer stumm · erster Durchlauf mit Ton, dann stumm · immer mit Ton</div></div>
             <div class="hz"><span class="hz-i" data-i="ton"></span><div class="hz-t"><strong>Musik vom Handy</strong> — „Ton hat Vorrang“: immer hörbar, Musik kann kurz anhalten · „Musik läuft weiter“: Ton liegt darüber, nur ohne Lautlos-Modus · auch über den Lautsprecher im Training</div></div>
             <div class="hz"><span class="hz-i" data-i="speicher"></span><div class="hz-t"><strong>Speicher</strong> — „dauerhaft speichern“ schützt vor dem Aufräumen durch den Browser</div></div>
@@ -292,6 +303,6 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"><span id="toast-text"></span><button id="toast-btn" type="button" class="hidden">Rückgängig</button></div>
 
-  <script src="app.js?v=13"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

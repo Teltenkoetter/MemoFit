@@ -376,6 +376,13 @@ html.im-training, html.im-training body { overflow: hidden; }
   font-size: clamp(3rem, 15vw, 5.2rem); font-weight: 300; font-variant-numeric: tabular-nums; letter-spacing: -1px; color: var(--text);
 }
 .t-ring .zahl small { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.6px; color: var(--hint); text-transform: uppercase; margin-top: -0.2rem; }
+.t-ring .bogen-voll { fill: none; stroke: rgba(var(--ph-rgb), 0.55); }
+.t-ring.wdh { container-type: inline-size; }
+.t-ring.wdh .zahl { font-size: 30cqi; }
+.t-ring.wdh .zahl.lang { font-size: 22cqi; }
+.t-ring.wdh .zahl small { margin-top: 0.1rem; }
+.t-vunten { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; flex: 0 0 auto; }
+.t-vunten .t-vzahl { font-size: 2.6rem; flex-direction: row; align-items: baseline; gap: 0.4rem; }
 .t-ring.drei .zahl { color: rgb(var(--ph-rgb)); animation: puls 1s ease-out infinite; }
 @keyframes puls { 0% { transform: scale(1.12); } 60% { transform: scale(1); } }
 
@@ -437,6 +444,28 @@ html.im-training, html.im-training body { overflow: hidden; }
 .t-ende h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(2.2rem, 9vw, 3rem); }
 .t-ende p { color: var(--text-dim); font-size: 1rem; }
 .t-ende .btn-primary { max-width: 320px; margin-top: 1.4rem; }
+/* Abschluss „Licht und Klang“ */
+.ab-fest { position: relative; width: min(46vw, 30vh, 190px); aspect-ratio: 1; margin-bottom: 0.8rem; }
+.ab-fest svg { position: relative; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.ab-bahn { fill: none; stroke: rgba(255,255,255,0.07); stroke-width: 5; }
+.ab-kreis { fill: none; stroke: var(--akt); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 289.1; stroke-dashoffset: 0; animation: ab-kreis 1.6s cubic-bezier(.45,.05,.25,1) 0.2s both; filter: drop-shadow(0 0 6px rgba(var(--akt-rgb), 0.6)); }
+.ab-haken { fill: none; stroke: var(--text); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 60; stroke-dashoffset: 0; transform: rotate(90deg); transform-origin: 60px 60px; animation: ab-haken 0.6s ease-out 1.6s both; }
+.ab-glanz { position: absolute; inset: -30%; border-radius: 50%; background: radial-gradient(circle, rgba(var(--akt-rgb), 0.35) 0%, rgba(var(--akt-rgb), 0) 62%); animation: ab-glanz 3.2s ease-out 1.2s both; }
+.funke { position: absolute; left: 50%; top: 55%; width: var(--g); height: var(--g); margin: calc(var(--g) / -2); border-radius: 50%; background: var(--akt); box-shadow: 0 0 10px rgba(var(--akt-rgb), 0.9); opacity: 0; animation: ab-funke 2.8s ease-out var(--d) both; }
+.funke.kuehl { background: var(--reg); box-shadow: 0 0 10px rgba(var(--reg-rgb), 0.9); }
+.training.fest .t-ende h2, .training.fest .t-ende p, .training.fest .t-ende .btn-primary { animation: ab-auf 0.9s ease-out 1.7s both; }
+@keyframes ab-kreis { from { stroke-dashoffset: 289.1; } }
+@keyframes ab-haken { from { stroke-dashoffset: 60; } }
+@keyframes ab-glanz { 0% { opacity: 0; transform: scale(0.6); } 35% { opacity: 1; transform: scale(1); } 100% { opacity: 0.35; transform: scale(1.05); } }
+@keyframes ab-funke { 0% { opacity: 0; transform: translate(0, 0) scale(0.6); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--x), -190px) scale(1); } }
+@keyframes ab-auf { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) {
+  .ab-fest *, .training.fest .t-ende * { animation: none !important; }
+  .funke { display: none; }
+}
+@media (orientation: landscape) and (max-height: 560px) {
+  .ab-fest { width: min(34vh, 140px); margin-bottom: 0.2rem; }
+}
 
 /* Querformat (Handy auf der Bank): Ring links, Text rechts */
 @media (orientation: landscape) and (max-height: 560px) {
@@ -454,6 +483,8 @@ html.im-training, html.im-training body { overflow: hidden; }
   .t-mitte { padding-right: 100px; }
   .t-unten { margin-top: 0; }
   .btn-fertig { min-height: 72px; }
+  .t-ring.wdh { width: min(46vh, 30vw, 210px); }
+  .t-vorn .t-links .btn-fertig { width: min(210px, 30vw); min-height: 64px; font-size: 1.35rem; border-radius: 22px; }
 }
 /* Hochformat: einfache Spalte */
 .t-links, .t-rechts { display: contents; }
@@ -469,6 +500,20 @@ html.im-training, html.im-training body { overflow: hidden; }
 /* Übungsfenster: Vorschau und Ausschnitt */
 .u-vid { width: 100%; max-height: 42dvh; border-radius: 14px; background: #000; display: block; margin-bottom: 0.7rem; }
 .v-reihe { margin-top: 0.2rem; }
+/* Mehrere Videos je Übung: eines offen, die anderen als Zeile */
+.v-clip { display: block; width: 100%; margin-bottom: 0.6rem; }
+.v-clip.offen { border: 1px solid var(--border); border-radius: 14px; padding: 0.7rem; background: rgba(255,255,255,0.02); }
+.v-clip.offen.einzeln { border: 0; padding: 0; background: none; }
+.v-kopf { display: flex; align-items: center; gap: 0.55rem; font-size: 0.85rem; font-weight: 600; color: var(--text-dim); margin-bottom: 0.6rem; }
+.v-nr { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; background: rgba(255,255,255,0.07); color: var(--text-dim); }
+.v-zeile { display: flex; align-items: center; gap: 0.7rem; text-align: left; cursor: pointer; font-family: inherit; color: var(--text); background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 14px; padding: 0.6rem 0.8rem; min-height: 52px; }
+.v-zeile:active { transform: scale(0.99); }
+.v-zt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.v-zn { font-size: 0.92rem; font-weight: 600; }
+.v-zi { font-size: 0.74rem; color: var(--hint); }
+.v-zi.warm { color: var(--akt); }
+.v-zeile .pfeil { color: var(--muted); font-size: 1.1rem; }
+.v-dazu { margin-top: 0.1rem; }
 .v-feld { display: flex; gap: 0.4rem; align-items: center; }
 .v-feld input { min-width: 0; font-variant-numeric: tabular-nums; }
 .v-feld .btn-klein { height: 44px; padding: 0 0.8rem; flex: 0 0 auto; }
@@ -529,9 +574,9 @@ button.t-ort { background: none; border: 0; cursor: pointer; font-family: inheri
 .t-ort-pfeil svg { width: 12px; height: 12px; display: block; }
 
 /* Ablauf-Fenster */
-.ablauf { display: flex; flex-direction: column; }
-.ab-block { font-size: 0.72rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.8px; padding: 0.9rem 0.2rem 0.3rem; }
-.ab-block:first-child { padding-top: 0.1rem; }
+.ablauf { display: flex; flex-direction: column; gap: 1.4rem; }
+.ab-gruppe { display: flex; flex-direction: column; }
+.ab-block { font-size: 1.3rem; font-weight: 700; color: var(--text); letter-spacing: 0.1px; padding: 0 0.2rem 0.35rem; }
 .ab-ue { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 1.02rem; padding: 0.75rem 0.6rem; min-height: 48px; cursor: pointer; border-radius: 10px; }
 .ab-ue.vorbei { color: var(--hint); }
 .ab-ue.jetzt { background: rgba(var(--akt-rgb), 0.14); color: var(--text); font-weight: 600; border-bottom-color: transparent; }
@@ -554,7 +599,7 @@ button.t-ort { background: none; border: 0; cursor: pointer; font-family: inheri
   color: var(--text-dim); font-family: inherit; font-size: 0.9rem; font-weight: 600;
   padding: 0.55rem 1.15rem 0.55rem 0.95rem; min-height: 44px;
 }
-.t-vorschau-knopf svg { width: 15px; height: 15px; }
+.t-vorschau-knopf svg { width: 15px; height: 15px; position: relative; top: 2px; }
 .t-vorschau-knopf:active { transform: scale(0.98); }
 .t-vorn.mit-video { padding: 0; justify-content: flex-end; gap: 0; }
 .t-video-slot.gross { transition: none; }

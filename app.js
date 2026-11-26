@@ -109,7 +109,7 @@ function speichern() {
 // ── Zustand ─────────────────────────────────────────────
 const W_WARMUP = { modus: 'zeit', zeit: 30, wdh: 12, wdhBis: null, saetze: 3, kann: true, pSatz: 15, pUebung: 30 };
 const W_HAUPT  = { modus: 'wdh', zeit: 40, wdh: 12, wdhBis: 15, saetze: 4, kann: true, pSatz: 60, pUebung: 90 };
-const EINST = { auto: true, vorlauf: 5, wechsel: 5, toene: true, karte: 'vorn', videoTon: 'immer', musik: 'vorrang' };
+const EINST = { auto: true, vorlauf: 5, wechsel: 5, toene: true, karte: 'vorn', videoTon: 'immer', musik: 'vorrang', abschluss: 'still' };
 
 function leer() { return { version: 1, plaene: [], uebungen: {}, einst: { ...EINST }, verlauf: [] }; }
 let S = leer();
@@ -119,6 +119,9 @@ function neueUebung(name, hinweis = '', extra = {}) {
   S.uebungen[ue.id] = ue;
   return ue;
 }
+// Videos einer Übung: eines oder mehrere, im Training nacheinander im Loop
+const clipsVon = ue => ue?.videos || [];
+const videoWort = n => n === 1 ? 'Video' : `${n} Videos`;
 // Neutraler, erfundener Beispielplan (keine echten Pläne im Upload)
 function beispielplan() {
   const it = (ue, w) => ({ id: uid(), ue: ue.id, w: { ...w } });
@@ -145,6 +148,11 @@ function zustandAus(z) {
     delete b.w;
   }));
   n.uebungen = z.uebungen && typeof z.uebungen === 'object' ? z.uebungen : {};
+  // bis Version 14: ein Video je Übung (video), jetzt eine Liste (videos)
+  Object.values(n.uebungen).forEach(u => {
+    if (!Array.isArray(u.videos)) u.videos = u.video ? [u.video] : [];
+    delete u.video;
+  });
   n.einst = { ...EINST, ...(z.einst || {}) };
   n.verlauf = Array.isArray(z.verlauf) ? z.verlauf : [];
   return n;
@@ -153,7 +161,7 @@ function zustandAus(z) {
 function aufraeumen() {
   S.plaene.forEach(p => p.bloecke.forEach(b => { b.items = b.items.filter(i => S.uebungen[i.ue]); }));
   // Clips ohne Übung entfernen
-  const clips = new Set(Object.values(S.uebungen).map(u => u.video?.id).filter(Boolean));
+  const clips = new Set(Object.values(S.uebungen).flatMap(u => clipsVon(u).map(c => c.id)));
   videoSchluessel().then(keys => keys.forEach(k => { if (!clips.has(k)) videoEntsorgen(k); }));
 }
 
@@ -276,9 +284,9 @@ async function renderBib() {
   if (!liste.length) { el.innerHTML = '<p class="zeile-leer">Nichts gefunden.</p>'; return; }
   el.innerHTML = liste.map(u => {
     const pl = plaeneMit(u.id, null);
-    const fehlt = u.video && clipKeys && !clipKeys.has(u.video.id);
+    const cl = clipsVon(u), fehlt = clipKeys && cl.some(c => !clipKeys.has(c.id));
     const teile = [];
-    if (u.video) teile.push(fehlt ? 'Video fehlt' : 'Video');
+    if (cl.length) teile.push(fehlt ? `${videoWort(cl.length)} · fehlt` : videoWort(cl.length));
     if (u.seiten) teile.push('re/li');
     if (u.kg != null) teile.push(kgText(u));
     teile.push(pl.length ? pl.join(', ') : 'in keinem Plan');
@@ -303,7 +311,7 @@ function renderPlan() {
       teile.push(werteKurz(w));
       if (ue.seiten) teile.push('re/li');
       if (ue.kg != null) teile.push(kgText(ue));
-      if (ue.video) teile.push('Video');
+      if (clipsVon(ue).length) teile.push(videoWort(clipsVon(ue).length));
       if (ue.hinweis) teile.push(ue.hinweis);
       const info = teile.length ? `<div class="info">${esc(teile.join(' · '))}</div>` : '';
       const erstes = bi === 0 && ii === 0, letztes = bi === p.bloecke.length - 1 && ii === b.items.length - 1;
@@ -435,35 +443,40 @@ function uebungSheet(bi, ii, bibId = null) {
   // Schritt und 2 × nur zeigen, wenn ein Gewicht eingetragen ist
   const kgSicht = () => $$('#sheet .u-mitkg').forEach(el => el.classList.toggle('hidden', $('#u-kg').value.trim() === ''));
   $('#u-kg').oninput = kgSicht; kgSicht();
-  // ── Video: wählen, Ausschnitt setzen ──
-  let vs = null, probe = false;
-  const vsAus = v => { if (vs?.url && vs.neu) URL.revokeObjectURL(vs.url); vs = v ? { ...v } : null; if (vs && !vs.neu) vsLaden(); videoBereich(); };
-  async function vsLaden() {
-    const v = vs, blob = await videoLaden(v.id);
-    if (vs !== v) return;
-    if (blob) v.url = URL.createObjectURL(blob); else v.fehlt = true;
+  // ── Videos: eines oder mehrere, je mit eigenem Ausschnitt. Im Training laufen sie nacheinander im Loop. ──
+  let vl = [], offen = -1, probe = false, ersetzen = null;
+  const vlFrei = () => vl.forEach(c => { if (c.url) URL.revokeObjectURL(c.url); });
+  const vlAus = liste => {
+    vlFrei();
+    vl = (liste || []).map(c => ({ ...c }));
+    offen = vl.length ? 0 : -1; probe = false;
+    vl.forEach(clipLaden); videoBereich();
+  };
+  async function clipLaden(c) {
+    if (c.neu || c.url || c.fehlt) return;
+    const blob = await videoLaden(c.id);
+    if (!vl.includes(c)) return;
+    if (blob) c.url = URL.createObjectURL(blob); else c.fehlt = true;
     videoBereich();
   }
+  const clipInfo = c => {
+    const bis = c.ende ?? c.dauer;
+    return [bis != null ? `Ausschnitt ${sekText(Math.max(0, bis - (c.start || 0)))}` : '', c.dauer ? `Video ${zeitFmt(c.dauer)}` : '', c.groesse ? mbText(c.groesse) : ''].filter(Boolean).join(' · ');
+  };
   function vInfo() {
-    const el = $('#v-info'); if (!el || !vs) return;
+    const el = $('#v-info'), vs = vl[offen]; if (!el || !vs) return;
     $('#u-video [data-v="ganz"]')?.classList.toggle('an', !vs.start && vs.ende == null);
-    const bis = vs.ende ?? vs.dauer;
-    el.textContent = [bis != null ? `Ausschnitt ${sekText(Math.max(0, bis - (vs.start || 0)))}` : '', vs.dauer ? `Video ${zeitFmt(vs.dauer)}` : '', vs.groesse ? mbText(vs.groesse) : ''].filter(Boolean).join(' · ');
+    el.textContent = clipInfo(vs);
   }
-  function videoBereich() {
-    const el = $('#u-video'); if (!el) return;
-    if (!vs) {
-      el.innerHTML = `<button class="btn-secondary" type="button" data-v="waehlen">Video wählen</button>
-        <p class="form-hinweis">Aus Fotos oder iCloud Drive. Das Video bleibt nur auf diesem Gerät. Tipp: in 1080p filmen oder in Fotos kürzen.</p>`;
-      return;
-    }
-    if (vs.fehlt) {
-      el.innerHTML = `<p class="card-text">Das Video ist nicht auf diesem Gerät, etwa nach dem Laden einer Sicherung${vs.name ? ` (${esc(vs.name)})` : ''}. Bitte neu wählen.</p>
-        <div class="chip-reihe links"><button class="btn-klein" type="button" data-v="waehlen">Video wählen</button><button class="btn-klein" type="button" data-v="weg">Video entfernen</button></div>`;
-      return;
-    }
-    if (!vs.url) { el.innerHTML = '<p class="form-hinweis">Video wird geladen …</p>'; return; }
-    el.innerHTML = `<video id="u-vid" class="u-vid" src="${vs.url}" playsinline controls preload="metadata"></video>
+  function clipOffen(vs, i) {
+    const mehr = vl.length > 1;
+    const box = mehr ? 'v-clip offen' : 'v-clip offen einzeln';
+    const kopf = mehr ? `<div class="v-kopf"><span class="v-nr">${i + 1}</span>Video ${i + 1} von ${vl.length}</div>` : '';
+    const ordnen = mehr && i > 0 ? `<button class="btn-klein" type="button" data-v="hoch">nach vorn</button>` : '';
+    if (vs.fehlt) return `<div class="${box}">${kopf}<p class="card-text">Das Video ist nicht auf diesem Gerät, etwa nach dem Laden einer Sicherung${vs.name ? ` (${esc(vs.name)})` : ''}. Bitte neu wählen. Der Ausschnitt bleibt erhalten.</p>
+      <div class="chip-reihe links"><button class="btn-klein" type="button" data-v="waehlen">Video wählen</button>${ordnen}<button class="btn-klein" type="button" data-v="weg">Video entfernen</button></div></div>`;
+    if (!vs.url) return `<div class="${box}">${kopf}<p class="form-hinweis">Video wird geladen …</p></div>`;
+    return `<div class="${box}">${kopf}<video id="u-vid" class="u-vid" src="${vs.url}" playsinline controls preload="metadata"></video>
       <div class="form-reihe v-reihe">
         <div class="form-group"><label for="v-start">Start</label><div class="v-feld"><input type="text" inputmode="decimal" id="v-start" value="${zeitFmt(vs.start || 0)}"><button class="btn-klein" type="button" data-v="start">hier</button></div></div>
         <div class="form-group"><label for="v-ende">Ende</label><div class="v-feld"><input type="text" inputmode="decimal" id="v-ende" value="${zeitFmt(vs.ende)}" placeholder="Schluss"><button class="btn-klein" type="button" data-v="ende">hier</button></div></div>
@@ -473,32 +486,64 @@ function uebungSheet(bi, ii, bibId = null) {
         <button class="btn-klein" type="button" data-v="probe">Ausschnitt abspielen</button>
         <button class="btn-klein" type="button" data-v="ganz">ganzes Video</button>
         <button class="btn-klein" type="button" data-v="waehlen">anderes Video</button>
+        ${ordnen}
         <button class="btn-klein" type="button" data-v="weg">entfernen</button>
-      </div>
-      <p class="form-hinweis">Video bis zur Stelle abspielen und „hier“ tippen. Im Training läuft nur der Ausschnitt, im Loop.</p>`;
-    const v = $('#u-vid');
-    v.addEventListener('loadedmetadata', () => { vs.dauer = Math.round(v.duration * 10) / 10; if (vs.start) v.currentTime = vs.start; vInfo(); });
+      </div></div>`;
+  }
+  function clipZu(c, i) {
+    const info = c.fehlt ? 'fehlt auf diesem Gerät · neu wählen' : clipInfo(c) || (c.url || c.neu ? 'Ausschnitt festlegen' : 'wird geladen …');
+    return `<button class="v-clip v-zeile" type="button" data-v="oeffnen" data-i="${i}"><span class="v-nr">${i + 1}</span><span class="v-zt"><span class="v-zn">Video ${i + 1}</span><span class="v-zi${c.fehlt ? ' warm' : ''}">${esc(info)}</span></span><span class="pfeil">›</span></button>`;
+  }
+  function videoBereich() {
+    const el = $('#u-video'); if (!el) return;
+    if (!vl.length) {
+      el.innerHTML = `<button class="btn-secondary" type="button" data-v="dazu">Video wählen</button>
+        <p class="form-hinweis">Aus Fotos oder iCloud Drive, auch mehrere. Die Videos bleiben nur auf diesem Gerät. Tipp: in 1080p filmen oder in Fotos kürzen.</p>`;
+      return;
+    }
+    el.innerHTML = vl.map((c, i) => i === offen ? clipOffen(c, i) : clipZu(c, i)).join('')
+      + `<button class="btn-klein v-dazu" type="button" data-v="dazu">+ weiteres Video</button>
+      <p class="form-hinweis">${vl.length > 1 ? 'Im Training laufen die Videos nacheinander im Loop, jedes mit seinem Ausschnitt.' : 'Video bis zur Stelle abspielen und „hier“ tippen. Im Training läuft nur der Ausschnitt, im Loop.'}</p>`;
+    const v = $('#u-vid'), vs = vl[offen];
+    if (!v) return;
+    v.addEventListener('loadedmetadata', () => { if (Number.isFinite(v.duration)) vs.dauer = Math.round(v.duration * 10) / 10; if (vs.start) v.currentTime = vs.start; vInfo(); });
     v.addEventListener('timeupdate', () => { if (probe && vs.ende != null && v.currentTime >= vs.ende) v.currentTime = vs.start || 0; });
     $('#v-start').onchange = () => { const t = zeitLesen($('#v-start').value); vs.start = t ?? 0; if (vs.ende != null && vs.ende <= vs.start) vs.ende = null; $('#v-start').value = zeitFmt(vs.start); $('#v-ende').value = zeitFmt(vs.ende); vInfo(); };
     $('#v-ende').onchange = () => { const t = zeitLesen($('#v-ende').value); vs.ende = t != null && t > (vs.start || 0) ? t : null; $('#v-ende').value = zeitFmt(vs.ende); vInfo(); };
     vInfo();
   }
   $('#u-video').addEventListener('click', e => {
-    const a = e.target.closest('[data-v]')?.dataset.v; if (!a) return;
-    const v = $('#u-vid');
-    if (a === 'waehlen') $('#u-datei').click();
-    if (a === 'weg') vsAus(null);
+    const knopf = e.target.closest('[data-v]'), a = knopf?.dataset.v; if (!a) return;
+    const v = $('#u-vid'), vs = vl[offen];
+    if (a === 'dazu' || a === 'waehlen') {
+      ersetzen = a === 'waehlen' ? offen : null;
+      $('#u-datei').multiple = a === 'dazu';
+      $('#u-datei').click(); return;
+    }
+    if (a === 'oeffnen') { offen = +knopf.dataset.i; probe = false; videoBereich(); return; }
+    if (!vs) return;
+    if (a === 'weg') { if (vs.url) URL.revokeObjectURL(vs.url); vl.splice(offen, 1); offen = Math.min(offen, vl.length - 1); probe = false; videoBereich(); }
+    if (a === 'hoch' && offen > 0) { [vl[offen - 1], vl[offen]] = [vl[offen], vl[offen - 1]]; offen--; videoBereich(); }
     if (a === 'ganz') { vs.start = 0; vs.ende = null; videoBereich(); }
     if (a === 'start' && v) { vs.start = Math.round(v.currentTime * 10) / 10; if (vs.ende != null && vs.ende <= vs.start) vs.ende = null; $('#v-start').value = zeitFmt(vs.start); $('#v-ende').value = zeitFmt(vs.ende); vInfo(); }
     if (a === 'ende' && v) { const t = Math.round(v.currentTime * 10) / 10; if (t > (vs.start || 0) + 0.5) { vs.ende = t; probe = false; v.pause(); $('#v-ende').value = zeitFmt(t); vInfo(); } else toast('Das Ende muss nach dem Start liegen'); }
     if (a === 'probe' && v) { probe = true; v.currentTime = vs.start || 0; v.play().catch(() => {}); }
   });
   $('#u-datei').onchange = e => {
-    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-    vsAus({ neu: true, blob: f, url: URL.createObjectURL(f), start: 0, ende: null, dauer: null, name: f.name, groesse: f.size });
-    if (f.size > 200 * 1048576) toast(`Großes Video (${mbText(f.size)}). Kürzen spart Platz.`);
+    const dateien = [...e.target.files]; e.target.value = ''; if (!dateien.length) return;
+    const neue = dateien.map(f => ({ neu: true, blob: f, url: URL.createObjectURL(f), start: 0, ende: null, dauer: null, name: f.name, groesse: f.size }));
+    if (ersetzen != null && vl[ersetzen]) {
+      const alt = vl[ersetzen];
+      if (alt.url) URL.revokeObjectURL(alt.url);
+      if (alt.fehlt) Object.assign(neue[0], { start: alt.start || 0, ende: alt.ende ?? null });   // neu zugeordnet: Ausschnitt bleibt
+      vl[ersetzen] = neue[0]; offen = ersetzen;
+    } else { vl.push(...neue); offen = vl.length - neue.length; }
+    probe = false; ersetzen = null;
+    const gross = dateien.filter(f => f.size > 200 * 1048576);
+    if (gross.length) toast(gross.length === 1 ? `Großes Video (${mbText(gross[0].size)}). Kürzen spart Platz.` : 'Große Videos. Kürzen spart Platz.');
+    videoBereich();
   };
-  vsAus(ue.video || null);
+  vlAus(clipsVon(ue));
   $$('#u-vorh [data-vorh]').forEach(btn => btn.onclick = () => {
     const an = gewaehlt !== btn.dataset.vorh;
     $$('#u-vorh [data-vorh]').forEach(x => x.classList.toggle('an', an && x === btn));
@@ -506,7 +551,7 @@ function uebungSheet(bi, ii, bibId = null) {
     const u = an ? S.uebungen[gewaehlt] : { name: '', hinweis: '', seiten: false, kg: null, anzahl: 1, schritt: 2.5 };
     $('#u-name').value = u.name; $('#u-hinweis').value = u.hinweis; $('#u-seiten').checked = u.seiten;
     $('#u-kg').value = u.kg != null ? komma(u.kg) : ''; $('#u-zwei').checked = u.anzahl === 2; $('#u-schritt').value = String(u.schritt); kgSicht();
-    vsAus(u.video || null);
+    vlAus(clipsVon(u));
     const auch = an ? plaeneMit(gewaehlt, null) : [];
     $('#u-auch').classList.toggle('hidden', !auch.length);
     $('#u-auch').textContent = auchText(auch);
@@ -519,27 +564,29 @@ function uebungSheet(bi, ii, bibId = null) {
   $('#u-ok').onclick = async () => {
     const name = $('#u-name').value.trim();
     if (!name) { $('#u-name').focus(); toast('Bitte einen Namen eintragen'); return; }
-    // Video zuerst sichern: erst wenn der Clip gespeichert ist, zeigt die Übung darauf
-    let video = null;
-    const knopf = $('#u-ok');
-    if (vs?.neu) {
-      const id = uid();
-      knopf.disabled = true; knopf.textContent = 'Video wird gespeichert …';
-      try { await videoSpeichern(id, vs.blob); }
-      catch { knopf.disabled = false; knopf.textContent = 'Speichern'; toast('Video ließ sich nicht speichern. Speicher voll?'); return; }
-      navigator.storage?.persist?.().catch(() => {});
-      video = { id, start: vs.start || 0, ende: vs.ende ?? null, dauer: vs.dauer ?? null, name: vs.name || '', groesse: vs.groesse || 0 };
-    } else if (vs?.id) video = { id: vs.id, start: vs.start || 0, ende: vs.ende ?? null, dauer: vs.dauer ?? null, name: vs.name || '', groesse: vs.groesse || 0 };
-    const altId = gewaehlt ? S.uebungen[gewaehlt]?.video?.id : null;
-    if (altId && altId !== video?.id) videoEntsorgen(altId);
-    if (vs?.url) URL.revokeObjectURL(vs.url);
+    // Videos zuerst sichern: erst wenn ein Clip gespeichert ist, zeigt die Übung darauf
+    const knopf = $('#u-ok'), videos = [];
+    for (const c of vl) {
+      let id = c.id;
+      if (c.neu) {
+        id = uid();
+        knopf.disabled = true; knopf.textContent = vl.length > 1 ? 'Videos werden gespeichert …' : 'Video wird gespeichert …';
+        try { await videoSpeichern(id, c.blob); }
+        catch { knopf.disabled = false; knopf.textContent = 'Speichern'; toast('Video ließ sich nicht speichern. Speicher voll?'); return; }
+        navigator.storage?.persist?.().catch(() => {});
+        c.id = id; c.neu = false; c.blob = null;   // bei einem zweiten Versuch nicht doppelt speichern
+      }
+      videos.push({ id, start: c.start || 0, ende: c.ende ?? null, dauer: c.dauer ?? null, name: c.name || '', groesse: c.groesse || 0 });
+    }
+    if (gewaehlt) clipsVon(S.uebungen[gewaehlt]).filter(a => !videos.some(x => x.id === a.id)).forEach(a => videoEntsorgen(a.id));
+    vlFrei();
     const kgRoh = $('#u-kg').value.trim();
     const daten = {
       name, hinweis: $('#u-hinweis').value.trim(), seiten: $('#u-seiten').checked,
       kg: kgRoh === '' ? null : Math.max(0, zahl(kgRoh, 0)), anzahl: $('#u-zwei').checked ? 2 : 1, schritt: zahl($('#u-schritt').value, 2.5),
-      video,
+      videos,
     };
-    if (gewaehlt) Object.assign(S.uebungen[gewaehlt], daten);
+    if (gewaehlt) { Object.assign(S.uebungen[gewaehlt], daten); delete S.uebungen[gewaehlt].video; }
     else { gewaehlt = neueUebung(name).id; Object.assign(S.uebungen[gewaehlt], daten); }
     if (!bib) {
       it.ue = gewaehlt;
@@ -587,12 +634,13 @@ async function renderEinst() {
   segSetzen('e-toene', S.einst.toene ? 1 : 0);
   segSetzen('e-videoton', S.einst.videoTon);
   segSetzen('e-musik', S.einst.musik);
+  segSetzen('e-abschluss', S.einst.abschluss);
   const t = $('#speicher-text');
   try {
     const est = navigator.storage?.estimate ? await navigator.storage.estimate() : null;
     const dauerhaft = navigator.storage?.persisted ? await navigator.storage.persisted() : false;
     const mb = b => (b / 1048576).toLocaleString('de-DE', { maximumFractionDigits: b < 10485760 ? 1 : 0 });
-    const clips = Object.values(S.uebungen).filter(u => u.video), clipMb = clips.reduce((a, u) => a + (u.video.groesse || 0), 0);
+    const clips = Object.values(S.uebungen).flatMap(clipsVon), clipMb = clips.reduce((a, c) => a + (c.groesse || 0), 0);
     t.textContent = (est ? `Belegt: ${mb(est.usage || 0)} MB von etwa ${mb(est.quota || 0)} MB. ` : '') +
       (clips.length ? `Davon ${clips.length} ${clips.length === 1 ? 'Video' : 'Videos'} mit etwa ${mb(clipMb)} MB. ` : '') +
       (dauerhaft ? 'Dauerhaft gespeichert: Der Browser räumt MemoFit nicht von selbst auf.' : 'Noch nicht dauerhaft gespeichert. Am besten die App vom Home-Bildschirm nutzen und unten anfragen.');
@@ -606,6 +654,7 @@ function einstVerbinden() {
   seg('e-musik', v => { S.einst.musik = v; audioPruefen(); });
   seg('e-vorlauf', v => S.einst.vorlauf = +v);
   seg('e-wechsel', v => S.einst.wechsel = +v);
+  seg('e-abschluss', v => { S.einst.abschluss = v; if (v === 'fest') { audioAn(); klangAbschluss(0.05); } });
   seg('e-toene', v => { S.einst.toene = v === '1'; if (S.einst.toene) { audioAn(); ton('los'); } });
   $('#btn-tontest').onclick = () => { audioAn(); ton('tick'); setTimeout(() => ton('tick'), 1000); setTimeout(() => ton('tick'), 2000); setTimeout(() => ton('los'), 3000); if (!S.einst.toene) toast('Töne sind aus'); };
   $('#btn-persist').onclick = async () => {
@@ -668,6 +717,16 @@ function ton(art, wann = null) {
   } catch {}
   return os;
 }
+// Abschluss „Licht und Klang“: ein weicher, aufsteigender Akkord, kein Jubel
+function klangAbschluss(nach = 0.7) {
+  if (!S.einst.toene || !ac) return;
+  try {
+    if (ac.state === 'suspended') ac.resume().catch(() => {});
+    const t = ac.currentTime + nach;
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => piep(f, t + i * 0.17, 2.2 - i * 0.2, 0.11));
+    [261.63, 392].forEach(f => piep(f, t + 0.68, 2.6, 0.06));
+  } catch {}
+}
 
 // 3-2-1 und Schlusston vorausplanen: auf die Uhr des Audiosystems gelegt, kurz vorher die Ausgabe wecken.
 // So kommen die Töne pünktlich und nicht verspätet in die nächste Phase hinein.
@@ -729,7 +788,7 @@ function trainingStart(planId, abUi = 0) {
   navigator.storage?.persist?.().catch(() => {});
   L = { plan, ues, out, i: 0, t0: jetzt(), start: 0, dauerMs: 0, halt: false, haltRest: 0, warte: false, piep: -1, einschub: null, gewOffen: false, ende: false,
     video: videoElement(), urls: {}, videoUe: null, tonGehoert: new Set(), karte: 'vorn',
-    hatVideo: ues.some(x => x.ue.video) };
+    hatVideo: ues.some(x => clipsVon(x.ue).length) };
   clipsLaden(L);
   document.documentElement.classList.add('im-training');
   $('#training').classList.remove('hidden');
@@ -757,12 +816,12 @@ function videoElement() {
   v.addEventListener('timeupdate', videoLoop);
   v.addEventListener('ended', videoLoop);
   ['play', 'pause', 'volumechange'].forEach(ev => v.addEventListener(ev, () => { audioPruefen(); lautKnopf(); }));
-  v.addEventListener('loadedmetadata', () => { const c = L && S.uebungen[L.videoUe]?.video; if (c?.start) v.currentTime = c.start; });
+  v.addEventListener('loadedmetadata', () => { const c = L && L.clip; if (c?.start) v.currentTime = c.start; });
   return v;
 }
 // Im Training läuft das Video bildschirmfüllend (CSS: object-fit: cover).
 async function clipsLaden(lauf) {
-  const ids = [...new Set(lauf.ues.map(x => x.ue.video?.id).filter(Boolean))];
+  const ids = [...new Set(lauf.ues.flatMap(x => clipsVon(x.ue).map(c => c.id)))];
   for (const id of ids) {
     const blob = await videoLaden(id);
     if (L !== lauf) return;
@@ -802,20 +861,37 @@ function videoSpielen() {
   const v = L.video;
   v.play()?.catch(() => { if (!v.muted) { v.muted = true; v.play()?.catch(() => {}); } });   // ohne Freigabe: stumm weiter
 }
-// Ausschnitt im Loop: am Ende zurück zum Start. Nach dem ersten Durchlauf stumm, wenn so eingestellt.
+// Clips einer Übung, die auf diesem Gerät bereitliegen
+const clipsBereit = ue => clipsVon(ue).filter(c => L.urls[c.id] && L.urls[c.id] !== 'fehlt');
+// Einen Clip der Übung ins <video> laden (mehrere Clips: nacheinander)
+function clipSetzen(liste, n) {
+  const v = L.video, c = liste[n];
+  L.clipNr = n; L.clip = c; L.vZeit = null;
+  v.loop = liste.length === 1;   // mehrere: am Ende zum nächsten Video
+  if (v.getAttribute('src') === L.urls[c.id]) { if (v.readyState > 0) v.currentTime = c.start || 0; }
+  else v.src = L.urls[c.id];
+}
+// Ausschnitt im Loop: am Ende zurück zum Start, bei mehreren Videos zum nächsten.
+// Nach einer ganzen Runde stumm, wenn so eingestellt. Die große Vorschau endet nach einer Runde.
 function videoLoop() {
-  if (!L || !L.videoUe) return;
-  const v = L.video, c = S.uebungen[L.videoUe]?.video; if (!c) return;
+  if (!L || !L.videoUe || !L.clip) return;
+  const v = L.video, c = L.clip;
   const start = c.start || 0, t = v.currentTime, vorher = L.vZeit ?? t;
   L.vZeit = t;
   const amEnde = v.ended || (c.ende != null && t >= c.ende - 0.05);
   const herum = t < vorher - 0.5;   // das Video ist von selbst wieder vorn (loop)
   if (amEnde || herum) {
     const lief = !v.paused || v.ended;
-    if (!v.muted) L.tonGehoert.add(L.videoUe);
-    if (L.vorschauGross) { vorschauEnde(); return; }
-    v.muted = tonStumm(L.videoUe);
-    if (amEnde || t < start - 0.3) { v.currentTime = start; L.vZeit = start; }
+    const liste = clipsBereit(S.uebungen[L.videoUe]);
+    const naechster = liste.length ? (L.clipNr + 1) % liste.length : 0;
+    const runde = naechster === 0;   // alle Clips einmal gelaufen
+    if (runde) {
+      if (!v.muted) L.tonGehoert.add(L.videoUe);
+      if (L.vorschauGross) { vorschauEnde(); return; }
+      v.muted = tonStumm(L.videoUe);
+    }
+    if (liste.length > 1) clipSetzen(liste, naechster);
+    else if (amEnde || t < start - 0.3) { v.currentTime = start; L.vZeit = start; }
     if (lief && v.paused) videoSpielen();
   } else if (t < start - 0.3) { v.currentTime = start; L.vZeit = start; }
 }
@@ -823,15 +899,15 @@ function videoSync() {
   if (!L || !L.video) return;
   const v = L.video, slot = L.ende ? null : $('#training .t-video-slot');
   if (!slot) { v.pause(); v.remove(); return; }
-  const ue = S.uebungen[slot.dataset.ue], url = ue?.video && L.urls[ue.video.id];
-  slot.classList.toggle('laedt', !url);
-  slot.classList.toggle('fehlt', url === 'fehlt');
-  if (!url || url === 'fehlt') { v.pause(); v.remove(); return; }
-  if (L.videoUe !== ue.id) { L.videoUe = ue.id; L.vZeit = null; v.src = url; }
+  const ue = S.uebungen[slot.dataset.ue], alle = clipsVon(ue), liste = clipsBereit(ue);
+  const fehlt = alle.length > 0 && alle.every(c => L.urls[c.id] === 'fehlt');
+  slot.classList.toggle('laedt', !liste.length && !fehlt);
+  slot.classList.toggle('fehlt', fehlt);
+  if (!liste.length) { v.pause(); v.remove(); return; }
   const art = slot.classList.contains('gross') ? 'gross' : 'karte';
-  if (art !== L.vArt) {   // neuer Platz: Ausschnitt von vorn
-    L.vArt = art;
-    if (v.readyState > 0) { v.currentTime = ue.video.start || 0; L.vZeit = null; }
+  if (L.videoUe !== ue.id || art !== L.vArt || !liste.includes(L.clip)) {   // neue Übung oder neuer Platz: von vorn, mit dem ersten Video
+    L.videoUe = ue.id; L.vArt = art;
+    clipSetzen(liste, 0);
   }
   if (v.parentNode !== slot) slot.appendChild(v);
   const st = cur();
@@ -924,9 +1000,21 @@ function ende() {
   speichern();
   wachLoslassen();
   const t = $('#training');
-  t.className = 'training ph-bereit';
-  t.innerHTML = `<div class="t-ende"><h2>Training beendet</h2><p>${esc(L.plan.name)} · ${min} min</p>
+  const fest = S.einst.abschluss === 'fest';
+  t.className = 'training ph-bereit' + (fest ? ' fest' : '');
+  t.innerHTML = `<div class="t-ende">${fest ? abschlussBild() : ''}<h2>Training beendet</h2><p>${esc(L.plan.name)} · ${min} min</p>
     <button class="btn-primary" type="button" data-a="schliessen">Schließen</button></div>`;
+  if (fest) klangAbschluss();
+}
+
+// Licht zum Abschluss: Ring schließt sich, Haken, ein paar leise aufsteigende Funken
+function abschlussBild() {
+  const funken = Array.from({ length: 16 }, (_, i) => {
+    const x = Math.round((Math.random() - 0.5) * 220), d = (0.9 + Math.random() * 1.6).toFixed(2), g = (4 + Math.random() * 5).toFixed(1);
+    return `<span class="funke${i % 3 === 0 ? ' kuehl' : ''}" style="--x:${x}px;--d:${d}s;--g:${g}px"></span>`;
+  }).join('');
+  return `<div class="ab-fest" aria-hidden="true"><div class="ab-glanz"></div>
+    <svg viewBox="0 0 120 120"><circle class="ab-bahn" cx="60" cy="60" r="46"/><circle class="ab-kreis" cx="60" cy="60" r="46"/><path class="ab-haken" d="M41 61l13 13 26-28"/></svg>${funken}</div>`;
 }
 
 // Was kommt als Nächstes (für „Gleich“ und die Vorschau in der Pause)
@@ -948,6 +1036,13 @@ function ringHtml(label) {
   return `<div class="t-ring"><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="bahn" cx="50" cy="50" r="45" stroke-width="6"/><circle class="bogen" cx="50" cy="50" r="45" stroke-width="6" stroke-dasharray="${RING_U}" stroke-dashoffset="0"/></svg>
     <div class="zahl"><span class="zahl-wert"></span>${label ? `<small>${label}</small>` : ''}</div></div>`;
 }
+// Wiederholungen: derselbe Ring wie bei der Zeit, voll und ruhig, die Zahl groß in der Mitte
+const wdhText = w => `${w.wdh}${w.wdhBis ? '–' + w.wdhBis : ''}`;
+function wdhRingHtml(w) {
+  const z = wdhText(w);
+  return `<div class="t-ring wdh" ${O(4)}><svg viewBox="0 0 100 100" aria-hidden="true"><circle class="bahn" cx="50" cy="50" r="45" stroke-width="6"/><circle class="bogen-voll" cx="50" cy="50" r="45" stroke-width="6"/></svg>
+    <div class="zahl${z.length > 3 ? ' lang' : ''}"><span>${z}</span><small>Wdh.</small></div></div>`;
+}
 function gewichtHtml(ue) {
   if (ue.kg == null) return '';
   if (L.gewOffen) return `<div class="t-gewicht-pm" style="order:5"><button type="button" data-a="kg-">−</button><span class="wert">${esc(kgText(ue))}</span><button type="button" data-a="kg+">+</button></div>`;
@@ -966,7 +1061,7 @@ function render() {
   const ziel = kNext >= 0 ? L.out[kNext] : null;
   const x = L.ues[(ziel || st).ui];
   const ort = `<b>${esc(x.b.name)}</b> · Übung ${(ziel || st).ui + 1} von ${L.ues.length}`;
-  const hatVorschau = !arbeit && ziel && x.ue.video && L.urls[x.ue.video.id] && L.urls[x.ue.video.id] !== 'fehlt';
+  const hatVorschau = !arbeit && ziel && clipsBereit(x.ue).length > 0;
   if (!hatVorschau) L.vorschauGross = false;
 
   let vorn = '', hinten = '';
@@ -974,19 +1069,19 @@ function render() {
     const w = x.w;
     const links = w.modus === 'zeit'
       ? ringHtml(L.halt ? 'angehalten' : '')
-      : `<div class="t-wdh" ${O(4)}>${w.wdh}${w.wdhBis ? '–' + w.wdhBis : ''}<small>×</small></div><button class="btn-fertig" type="button" data-a="fertig" ${O(6)}>fertig</button>`;
+      : `${wdhRingHtml(w)}<button class="btn-fertig" type="button" data-a="fertig" ${O(6)}>fertig</button>`;
     vorn = `<div class="t-links">${links.replace('class="t-ring"', `class="t-ring" ${O(4)}`)}${gewichtHtml(x.ue)}</div>
       <div class="t-rechts">
         <div class="t-zeile" ${O(1)}><b>${satzText(st)}</b>${st.kann ? ' · freiwillig' : ''}</div>
         <div class="t-name" ${O(2)}>${esc(x.ue.name)}</div>
         ${x.ue.hinweis ? `<div class="t-hinweis" ${O(3)}>${esc(x.ue.hinweis)}</div>` : ''}
         <div class="t-gleich" ${O(7)}>${gleichText()}</div>
-        ${x.ue.video ? `<div class="t-video-tipp" ${O(8)}>Antippen: Video</div>` : ''}
+        ${clipsVon(x.ue).length ? `<div class="t-video-tipp" ${O(8)}>Antippen: ${clipsVon(x.ue).length > 1 ? 'Videos' : 'Video'}</div>` : ''}
       </div>`;
     const unten = w.modus === 'zeit'
       ? `<span class="t-vzahl"><span class="zahl-wert"></span>${L.halt ? '<small>angehalten</small>' : ''}</span>`
-      : `<button class="btn-fertig klein" type="button" data-a="fertig">fertig</button>`;
-    hinten = x.ue.video
+      : `<span class="t-vunten"><span class="t-vzahl">${wdhText(w)}<small>Wdh.</small></span><button class="btn-fertig klein" type="button" data-a="fertig">fertig</button></span>`;
+    hinten = clipsVon(x.ue).length
       ? `<div class="t-video-slot" data-ue="${x.ue.id}"></div>
          <div class="t-video-leiste"><div class="t-vtext"><div class="t-vname">${esc(x.ue.name)}</div><div class="t-zeile"><b>${satzText(st)}</b></div></div>${unten}</div>`
       : x.ue.hinweis
@@ -1021,7 +1116,7 @@ function render() {
     <div class="t-mitte">
       <div class="t-karte ${arbeit && L.karte === 'hinten' ? 'hinten' : ''}" role="group" aria-label="Übungskarte">
         <div class="t-seite t-vorn${L.vorschauGross ? ' mit-video' : ''}">${vorn}</div>
-        ${arbeit ? `<div class="t-seite t-rueck${x.ue.video ? ' mit-video' : ''}">${hinten}</div>` : ''}
+        ${arbeit ? `<div class="t-seite t-rueck${clipsVon(x.ue).length ? ' mit-video' : ''}">${hinten}</div>` : ''}
       </div>
     </div>
     <div class="t-unten">
@@ -1112,7 +1207,7 @@ function ablaufSheet(plan) {
       const x = ues[ui], cls = ui === akt ? ' jetzt' : ui < akt ? ' vorbei' : '';
       return `<button type="button" class="ab-ue${cls}" data-spring="${ui++}">${esc(x.ue.name)}</button>`;
     }).join('');
-    if (zeilen) html += `<div class="ab-block">${esc(b.name)}</div>${zeilen}`;
+    if (zeilen) html += `<section class="ab-gruppe"><div class="ab-block">${esc(b.name)}</div>${zeilen}</section>`;
   });
   html += `</div><p class="form-hinweis">${akt >= 0 ? 'Antippen: dort weitermachen.' : 'Antippen: Training startet bei dieser Übung.'}</p>`;
   sheet(L && L.plan === plan ? 'Ablauf' : plan.name, html);
