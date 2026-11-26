@@ -250,6 +250,7 @@ function renderStart() {
       <button class="plan-karte" type="button" data-plan="${p.id}">
         <div>
           <div class="pk-name">${esc(p.name)}</div>
+          ${p.notiz ? `<div class="pk-notiz">${esc(p.notiz)}</div>` : ''}
           <div class="pk-bloecke">${p.bloecke.filter(b => b.items.length).map(b => esc(b.name)).join(' · ')}</div>
           <div class="pk-dauer">${ueAnz(p)} · ca. ${dauerMin(p)} min</div>
         </div>
@@ -268,7 +269,7 @@ function renderPlaene() {
     const info = `${p.bloecke.length} ${p.bloecke.length === 1 ? 'Block' : 'Blöcke'} · ${ueAnz(p)}${anzahlUe(p) ? ' · ca. ' + dauerMin(p) + ' min' : ''}`;
     if (plaeneSort) return `<div class="zeile sortieren"><div><div class="nm">${esc(p.name)}</div><div class="info">${info}</div></div>
       <div class="sort-pfeile"><button type="button" data-plan-hoch="${i}" ${i === 0 ? 'disabled' : ''} aria-label="nach oben">↑</button><button type="button" data-plan-runter="${i}" ${i === S.plaene.length - 1 ? 'disabled' : ''} aria-label="nach unten">↓</button></div></div>`;
-    return `<button class="zeile" type="button" data-plan-edit="${p.id}"><div><div class="nm">${esc(p.name)}</div><div class="info">${info}</div></div><span class="pfeil">›</span></button>`;
+    return `<button class="zeile" type="button" data-plan-edit="${p.id}"><div><div class="nm">${esc(p.name)}</div>${p.notiz ? `<div class="info notiz">${esc(p.notiz)}</div>` : ''}<div class="info">${info}</div></div><span class="pfeil">›</span></button>`;
   }).join('');
 }
 
@@ -299,6 +300,8 @@ function renderPlan() {
   const p = aktPlan();
   if (!p) { zeige('plaene'); return; }
   $('#plan-name').textContent = p.name;
+  $('#plan-notiz').textContent = p.notiz || '';
+  $('#plan-notiz').classList.toggle('hidden', !p.notiz);
   $('#plan-info').textContent = anzahlUe(p) ? `${ueAnz(p)} · ca. ${dauerMin(p)} min` : 'Noch keine Übungen';
   $('#plan-sort').classList.toggle('an', planSort);
   $('#plan-sort-hinweis').classList.toggle('hidden', !planSort);
@@ -367,12 +370,13 @@ function werteLesen() {
 // ── Sheets: Plan, Block, Übung ──────────────────────────
 function planNameSheet(neu) {
   const p = aktPlan();
-  sheet(neu ? 'Neuer Plan' : 'Plan umbenennen', `
+  sheet(neu ? 'Neuer Plan' : 'Name und Notiz', `
     <div class="form-group"><label for="pn">Name</label><input type="text" id="pn" value="${esc(neu ? '' : p.name)}" placeholder="z. B. Tag 1" autocomplete="off"></div>
+    <div class="form-group"><label for="pn-notiz">Notiz <span class="label-zusatz">(freiwillig)</span></label><input type="text" id="pn-notiz" value="${esc(p.notiz || '')}" placeholder="z. B. Trainer, Studio" autocomplete="off"></div>
     <button class="btn-primary" id="pn-ok" type="button">Speichern</button>`);
-  const ok = () => { p.name = $('#pn').value.trim() || p.name || 'Plan'; speichern(); sheetZu(); renderPlan(); };
+  const ok = () => { p.name = $('#pn').value.trim() || p.name || 'Plan'; p.notiz = $('#pn-notiz').value.trim(); if (!p.notiz) delete p.notiz; speichern(); sheetZu(); renderPlan(); };
   $('#pn-ok').onclick = ok;
-  $('#pn').onkeydown = e => { if (e.key === 'Enter') ok(); };
+  $('#pn').onkeydown = $('#pn-notiz').onkeydown = e => { if (e.key === 'Enter') ok(); };
   setTimeout(() => $('#pn')?.focus(), 250);
 }
 

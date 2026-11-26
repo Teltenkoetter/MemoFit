@@ -606,3 +606,14 @@ button.t-ort { background: none; border: 0; cursor: pointer; font-family: inheri
 @media (orientation: landscape) and (max-height: 560px) {
   .t-seite.t-vorn.mit-video { display: flex; padding: 0; }
 }
+
+/* ── v17: Notiz je Plan, leichtere Ablauf-Liste ─────── */
+.plan-karte .pk-notiz { font-size: 0.9rem; color: var(--text-dim); font-style: italic; margin-top: 0.2rem; }
+.plan-kopf-notiz { font-size: 0.9rem; color: var(--text-dim); font-style: italic; }
+.zeile .info.notiz { font-style: italic; color: var(--text-dim); }
+.label-zusatz { font-weight: 400; color: var(--hint); }
+.ab-ue { font-weight: 300; font-size: 0.98rem; color: var(--text-dim); padding-left: 1.6rem; position: relative; border-bottom: 0; min-height: 44px; padding-top: 0.6rem; padding-bottom: 0.6rem; }
+.ab-ue::before { content: ''; position: absolute; left: 0.75rem; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: currentColor; opacity: 0.6; }
+.ab-ue.vorbei { color: var(--hint); }
+.ab-ue.jetzt { font-weight: 500; color: var(--text); }
+.ab-ue.jetzt::before { background: var(--akt); opacity: 1; }

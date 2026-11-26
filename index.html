@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <title>MemoFit</title>
-  <link rel="stylesheet" href="style.css?v=16">
+  <link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
 
@@ -70,6 +70,7 @@
       </div>
       <div class="plan-kopf">
         <button class="plan-name-knopf" id="plan-name" type="button"></button>
+        <div class="plan-kopf-notiz hidden" id="plan-notiz"></div>
         <div class="plan-kopf-info" id="plan-info"></div>
         <div class="chip-reihe links">
           <button class="btn-klein" id="plan-sort" type="button">Reihenfolge</button>
@@ -245,7 +246,7 @@
         <div class="modal-section">
           <div class="modal-section-title"><span class="hz-i klein" data-i="plaene"></span>Planung</div>
           <div class="hz-liste">
-            <div class="hz"><span class="hz-i" data-i="plaene"></span><div class="hz-t"><strong>Plan</strong> — ein Trainingstag · Blöcke wie Warm-up, Hauptteil A, Hauptteil B fassen die Übungen zusammen</div></div>
+            <div class="hz"><span class="hz-i" data-i="plaene"></span><div class="hz-t"><strong>Plan</strong> — ein Trainingstag · Blöcke wie Warm-up, Hauptteil A, Hauptteil B fassen die Übungen zusammen · den Namen antippen: Name und Notiz, z. B. Trainer oder Studio</div></div>
             <div class="hz"><span class="hz-i" data-i="werte"></span><div class="hz-t"><strong>Werte je Übung</strong> — Zeit oder Wiederholungen · Sätze · Pause zwischen Sätzen · Pause vor der nächsten Übung · eine neue Übung übernimmt die Werte der Übung davor</div></div>
             <div class="hz"><span class="hz-i" data-i="uebung"></span><div class="hz-t"><strong>Übung</strong> — Name · Hinweis · Werte · Seiten re/li · Gewicht · Video</div></div>
             <div class="hz"><span class="hz-i" data-i="bibliothek"></span><div class="hz-t"><strong>Übungen</strong> — oben „Pläne · Übungen“ umschalten · alle Übungen auf einen Blick · suchen · in welchen Plänen sie stehen</div></div>
@@ -303,6 +304,6 @@
 
   <div id="toast" class="toast hidden" role="status" aria-live="polite"><span id="toast-text"></span><button id="toast-btn" type="button" class="hidden">Rückgängig</button></div>
 
-  <script src="app.js?v=16"></script>
+  <script src="app.js?v=17"></script>
 </body>
 </html>
