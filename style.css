@@ -617,3 +617,13 @@ button.t-ort { background: none; border: 0; cursor: pointer; font-family: inheri
 .ab-ue.vorbei { color: var(--hint); }
 .ab-ue.jetzt { font-weight: 500; color: var(--text); }
 .ab-ue.jetzt::before { background: var(--akt); opacity: 1; }
+
+/* Übung im Plan: ✕ rechts neben der Zeile */
+.zeile-wrap { display: flex; align-items: center; border-bottom: 1px solid var(--border); }
+.zeile-wrap > .zeile { border-bottom: 0; flex: 1; min-width: 0; }
+.zeilen > .zeile-wrap:last-child { border-bottom: 0; }
+.ue-weg {
+  flex: 0 0 auto; width: 34px; height: 34px; margin-left: 0.3rem; border-radius: 50%; cursor: pointer;
+  background: none; border: 1px solid var(--border); color: var(--muted); font-size: 0.85rem;
+}
+.ue-weg:active { background: rgba(255,255,255,0.08); color: var(--text); }

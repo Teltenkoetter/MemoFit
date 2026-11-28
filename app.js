@@ -320,7 +320,8 @@ function renderPlan() {
       const erstes = bi === 0 && ii === 0, letztes = bi === p.bloecke.length - 1 && ii === b.items.length - 1;
       if (planSort) return `<div class="zeile sortieren"><div><div class="nm">${esc(ue.name)}</div></div>
         <div class="sort-pfeile"><button type="button" data-ue-hoch="${bi}.${ii}" ${erstes ? 'disabled' : ''} aria-label="nach oben">↑</button><button type="button" data-ue-runter="${bi}.${ii}" ${letztes ? 'disabled' : ''} aria-label="nach unten">↓</button></div></div>`;
-      return `<button class="zeile" type="button" data-ue-edit="${bi}.${ii}"><div><div class="nm">${esc(ue.name)}</div>${info}</div><span class="pfeil">›</span></button>`;
+      return `<div class="zeile-wrap"><button class="zeile" type="button" data-ue-edit="${bi}.${ii}"><div><div class="nm">${esc(ue.name)}</div>${info}</div><span class="pfeil">›</span></button>
+        <button class="ue-weg" type="button" data-ue-weg="${bi}.${ii}" aria-label="${esc(ue.name)} aus dem Plan entfernen" title="Übung aus dem Plan entfernen">✕</button></div>`;
     }).join('');
     const kopf = planSort
       ? `<div class="card-header"><div class="block-kopf-knopf"><div class="bn ohne-stift">${esc(b.name)}</div></div>
@@ -441,7 +442,7 @@ function uebungSheet(bi, ii, bibId = null) {
       <input type="file" id="u-datei" accept="video/*" hidden></div>
     <div class="btn-reihe">
       <button class="btn-primary" id="u-ok" type="button">Speichern</button>
-      ${neu ? '' : bib ? '<button class="btn-leise" id="u-del" type="button">Übung löschen</button>' : '<button class="btn-leise" id="u-weg" type="button">Aus dem Block entfernen</button>'}
+      ${neu ? '' : bib ? '<button class="btn-leise" id="u-del" type="button">Übung löschen</button>' : '<button class="btn-leise" id="u-weg" type="button">Übung aus dem Plan entfernen</button>'}
     </div>`);
   if (!bib) werteFormularVerbinden();
   // Schritt und 2 × nur zeigen, wenn ein Gewicht eingetragen ist
@@ -1322,10 +1323,13 @@ function verbinden() {
     S.plaene.splice(S.plaene.indexOf(p) + 1, 0, k); aktPlanId = k.id;
     speichern(); renderPlan(); toast('Kopie angelegt');
   };
+  // Ganzen Plan löschen: erst noch einmal fragen
   $('#plan-weg').onclick = () => {
     const p = aktPlan(), i = S.plaene.indexOf(p);
-    S.plaene.splice(i, 1); speichern(); zeige('plaene');
-    toast(`${p.name} gelöscht`, () => { S.plaene.splice(i, 0, p); speichern(); renderPlaene(); renderStart(); });
+    bestaetigen(`„${p.name}“ löschen?`, `Willst du „${esc(p.name)}“ wirklich löschen? Alle Blöcke und Übungen dieses Plans werden entfernt. Die Übungen bleiben in der Bibliothek.`, 'Plan löschen', () => {
+      S.plaene.splice(i, 1); speichern(); zeige('plaene');
+      toast(`${p.name} gelöscht`, () => { S.plaene.splice(i, 0, p); speichern(); renderPlaene(); renderStart(); });
+    });
   };
   $('#btn-block-neu').onclick = () => blockSheet(null);
   $('#plan-bloecke').addEventListener('click', e => {
@@ -1334,6 +1338,13 @@ function verbinden() {
     if (d.blockEdit != null) blockSheet(+d.blockEdit);
     if (d.ueNeu != null) uebungSheet(+d.ueNeu, null);
     if (d.ueEdit) { const [bi, ii] = d.ueEdit.split('.').map(Number); uebungSheet(bi, ii); }
+    // ✕: nur diese eine Übung aus dem Plan, sofort und mit Rückgängig; in der Bibliothek bleibt sie
+    if (d.ueWeg) {
+      const [bi, ii] = d.ueWeg.split('.').map(Number), b = p.bloecke[bi], it = b?.items[ii]; if (!it) return;
+      const name = S.uebungen[it.ue]?.name || 'Übung';
+      b.items.splice(ii, 1); speichern(); renderPlan();
+      toast(`${name} entfernt`, () => { b.items.splice(ii, 0, it); speichern(); renderPlan(); });
+    }
     if (d.blockHoch) { verschiebe(p.bloecke, +d.blockHoch, -1); speichern(); renderPlan(); }
     if (d.blockRunter) { verschiebe(p.bloecke, +d.blockRunter, 1); speichern(); renderPlan(); }
     const ueZug = d.ueHoch || d.ueRunter;
